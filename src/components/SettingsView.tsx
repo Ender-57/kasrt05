@@ -27,7 +27,7 @@ import {
 import { RTProfile, Resident, CashTransaction, CommitteeOfficer } from '../types';
 import { INITIAL_RESIDENTS, INITIAL_TRANSACTIONS, INITIAL_RT_PROFILE } from '../data/initialData';
 import { formatDateIndo } from '../utils/formatters';
-import { sha256Sync, isSha256 } from '../utils/crypto';
+import { resolveAdminPin } from '../utils/crypto';
 
 interface SettingsViewProps {
   profile: RTProfile;
@@ -48,20 +48,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onRestoreData,
   onOpenGoogleSync,
 }) => {
-  const getDisplayPin = (pin: string | undefined): string => {
-    if (!pin) return '123456';
-    if (pin === '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92') {
-      return '123456';
-    }
-    return pin;
-  };
-
   const [form, setForm] = useState<RTProfile>({ 
     ...profile,
     officers: profile.officers !== undefined ? profile.officers : INITIAL_RT_PROFILE.officers,
   });
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [pinInput, setPinInput] = useState(() => getDisplayPin(profile.adminPin));
+  const [pinInput, setPinInput] = useState(() => resolveAdminPin(profile.adminPin));
   const [showPin, setShowPin] = useState(false);
 
   // Backup Restore Modal & Notification States (No window.alert/confirm)
@@ -83,7 +75,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       ...profile,
       officers: profile.officers !== undefined ? profile.officers : INITIAL_RT_PROFILE.officers,
     });
-    setPinInput(getDisplayPin(profile.adminPin));
+    setPinInput(resolveAdminPin(profile.adminPin));
   }, [profile]);
 
   // New Officer form state
@@ -260,7 +252,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     e.preventDefault();
     
     const trimmed = pinInput.trim();
-    const finalPin = trimmed !== '' ? trimmed : (getDisplayPin(profile.adminPin) || '123456');
+    const finalPin = trimmed !== '' ? resolveAdminPin(trimmed) : (resolveAdminPin(profile.adminPin) || '123456');
 
     const updatedProfile = {
       ...form,

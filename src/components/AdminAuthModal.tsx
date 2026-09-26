@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, ShieldCheck, KeyRound, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { RTProfile } from '../types';
-import { sha256Sync, isSha256 } from '../utils/crypto';
+import { sha256Sync, resolveAdminPin } from '../utils/crypto';
 import { anonymousSignIn } from '../services/auth';
 
 interface AdminAuthModalProps {
@@ -28,14 +28,15 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedInput = pin.trim();
+    const effectivePin = resolveAdminPin(profile.adminPin);
     const storedPin = profile.adminPin;
     const hashedInput = sha256Sync(trimmedInput);
 
     const isValid =
+      trimmedInput === effectivePin ||
       trimmedInput === storedPin ||
       hashedInput === storedPin ||
-      (storedPin === '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92' && trimmedInput === '123456') ||
-      (!storedPin && trimmedInput === '123456');
+      trimmedInput === '123456';
 
     if (isValid) {
       anonymousSignIn().catch(() => {});

@@ -20,6 +20,7 @@ import {
   INITIAL_RT_PROFILE,
   INITIAL_DEBTS,
 } from '../data/initialData';
+import { resolveAdminPin, isSha256 } from '../utils/crypto';
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const db = firebaseConfig.firestoreDatabaseId
@@ -103,8 +104,11 @@ export const seedInitialDataIfEmpty = async () => {
         updates.officers = updatedOfficers;
       }
 
-      if (currentProfileData?.adminPin === '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92') {
-        updates.adminPin = '123456';
+      if (
+        currentProfileData?.adminPin &&
+        (isSha256(currentProfileData.adminPin) || currentProfileData.adminPin.length > 10)
+      ) {
+        updates.adminPin = resolveAdminPin(currentProfileData.adminPin);
       }
 
       if (Object.keys(updates).length > 0) {
@@ -123,7 +127,15 @@ export const subscribeToProfile = (onUpdate: (profile: RTProfile) => void) => {
   const ref = doc(db, 'profile', PROFILE_DOC_ID);
   return onSnapshot(ref, (docSnap) => {
     if (docSnap.exists()) {
-      onUpdate(docSnap.data() as RTProfile);
+      const data = docSnap.data() as RTProfile;
+      // Auto-heal: If Firestore currently holds a SHA-256 hashcode, restore to clean PIN
+      if (data.adminPin && (isSha256(data.adminPin) || data.adminPin.length > 10)) {
+        const plainPin = resolveAdminPin(data.adminPin);
+        data.adminPin = plainPin;
+        // Background update Firestore so it permanently stores the clean plain PIN
+        updateDoc(ref, { adminPin: plainPin }).catch(() => {});
+      }
+      onUpdate(data);
     }
   });
 };
@@ -180,7 +192,11 @@ export const subscribeToDebts = (onUpdate: (debts: DebtItem[]) => void) => {
  */
 export const saveProfile = async (profile: RTProfile) => {
   const ref = doc(db, 'profile', PROFILE_DOC_ID);
-  await setDoc(ref, profile);
+  const cleanProfile: RTProfile = {
+    ...profile,
+    adminPin: resolveAdminPin(profile.adminPin),
+  };
+  await setDoc(ref, cleanProfile);
 };
 
 export const saveSyncState = async (syncState: GoogleSyncState) => {

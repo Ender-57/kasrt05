@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  header, footer, nav, .mobile-bottom-nav {
+    display: none !important;
+  }
+}
+
+/* Prevent auto-zoom on iOS Safari when tapping inputs & selects */
+@media screen and (max-width: 639px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Smooth Touch Scrolling on iOS & Android */
+.overflow-x-auto, .overflow-y-auto, .overflow-auto {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #059669 #f1f5f9;
+}
+
+/* Hide scrollbar utility for clean mobile horizontal tabs */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #059669;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #047857;
+}
+
+/* Safe area inset utilities for iPhone Notch / Home Bar */
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}

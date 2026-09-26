@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if ID is valid (prevents ID poisoning)
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() < 100 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Helper to check if user is authenticated (Pengurus RT)
+    function isPengurus() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    // --- Profile Rules ---
+    match /profile/{profileId} {
+      allow read: if true;
+      allow write: if isPengurus() && isValidId(profileId);
+    }
+
+    // --- Residents Rules ---
+    match /residents/{residentId} {
+      allow read: if true;
+      allow write: if isPengurus() && isValidId(residentId);
+    }
+
+    // --- Transactions Rules ---
+    match /transactions/{transactionId} {
+      allow read: if true;
+      allow write: if isPengurus() && isValidId(transactionId);
+    }
+
+    // --- Debts Rules ---
+    match /debts/{debtId} {
+      allow read: if true;
+      allow write: if isPengurus() && isValidId(debtId);
+    }
+
+    // --- Sync State Rules ---
+    match /syncState/{stateId} {
+      allow read: if true;
+      allow write: if isPengurus() && isValidId(stateId);
+    }
+  }
+}

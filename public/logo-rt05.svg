@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="100%" height="100%">
+  <defs>
+    <!-- Top arc path for "RT 05 RW 08 DUSUN III" -->
+    <path id="top-arc" d="M 38,150 A 112,112 0 0,1 262,150" fill="none" />
+    <!-- Bottom main arc path for "SATRIAJAYA" (drawn right-to-left so letters face outward upright) -->
+    <path id="bottom-arc-main" d="M 264,150 A 114,114 0 0,1 36,150" fill="none" />
+    <!-- Bottom sub arc path for "TAMBUN UTARA • KAB. BEKASI" -->
+    <path id="bottom-arc-sub" d="M 283,150 A 133,133 0 0,1 17,150" fill="none" />
+  </defs>
+
+  <!-- Background Circle (Pure White) -->
+  <circle cx="150" cy="150" r="148" fill="#ffffff" />
+
+  <!-- Outer Thick Border -->
+  <circle cx="150" cy="150" r="143" fill="none" stroke="#000000" stroke-width="7.5" />
+
+  <!-- Outer Secondary Thin Ring -->
+  <circle cx="150" cy="150" r="132" fill="none" stroke="#000000" stroke-width="2.2" />
+
+  <!-- Inner Ring separating text and center icon -->
+  <circle cx="150" cy="150" r="94" fill="none" stroke="#000000" stroke-width="4.5" />
+
+  <!-- Top Text: RT 05 RW 08 DUSUN III -->
+  <text font-family="'Arial Black', 'Montserrat', Impact, 'Segoe UI', sans-serif" font-size="18.5" font-weight="900" fill="#000000" letter-spacing="2.2">
+    <textPath href="#top-arc" startOffset="50%" text-anchor="middle">
+      RT 05 RW 08 DUSUN III
+    </textPath>
+  </text>
+
+  <!-- Bottom Main Text: SATRIAJAYA -->
+  <text font-family="'Arial Black', 'Montserrat', Impact, 'Segoe UI', sans-serif" font-size="26" font-weight="900" fill="#000000" letter-spacing="3.5">
+    <textPath href="#bottom-arc-main" startOffset="50%" text-anchor="middle">
+      SATRIAJAYA
+    </textPath>
+  </text>
+
+  <!-- Bottom Subtitle: TAMBUN UTARA • KAB. BEKASI -->
+  <text font-family="'Arial Black', 'Montserrat', 'Segoe UI', sans-serif" font-size="11" font-weight="800" fill="#000000" letter-spacing="1.1">
+    <textPath href="#bottom-arc-sub" startOffset="50%" text-anchor="middle">
+      TAMBUN UTARA • KAB. BEKASI
+    </textPath>
+  </text>
+
+  <!-- Center Graphic: Two Interlocking Geometric Houses -->
+  <g fill="none" stroke="#000000" stroke-linecap="square" stroke-linejoin="miter">
+    <!-- Back House (offset top-right) -->
+    <!-- Outer roof & right wall -->
+    <path d="M 132 89 L 163 65 L 205 97 L 205 152" stroke-width="6.5" stroke-linejoin="miter" />
+    <!-- Inner parallel line of Back House -->
+    <path d="M 145 99 L 163 84 L 189 104 L 189 152" stroke-width="5.5" stroke-linejoin="miter" />
+
+    <!-- Front House (main foreground house) -->
+    <!-- Outer house contour with base -->
+    <path d="M 95 152 L 95 117 L 137 85 L 179 117 L 179 152 L 95 152 Z" stroke-width="7" stroke-linejoin="miter" />
+    
+    <!-- Inner cut-out contour -->
+    <path d="M 118 152 L 118 131 L 137 116 L 156 131 L 156 152" stroke-width="5.5" stroke-linejoin="miter" />
+  </g>
+
+  <!-- "GRAHA PRIMA" Center Text -->
+  <text x="150" y="172" text-anchor="middle" font-family="'Arial Black', 'Montserrat', 'Segoe UI', sans-serif" font-size="14.5" font-weight="900" fill="#000000" letter-spacing="1.8">
+    GRAHA PRIMA
+  </text>
+</svg>

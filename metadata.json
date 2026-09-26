@@ -1,0 +1,8 @@
+{
+  "name": "Buku Kas & Iuran Warga RT 05 / RW 08 Satriajaya",
+  "description": "Aplikasi pencatatan iuran warga, transaksi kas operasional, dan laporan keuangan bulanan transparan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

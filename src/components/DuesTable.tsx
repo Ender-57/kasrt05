@@ -21,7 +21,7 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { Resident, MonthKey, MONTHS, RTProfile, CashTransaction } from '../types';
-import { formatRupiah } from '../utils/formatters';
+import { formatRupiah, formatAttachmentFileName } from '../utils/formatters';
 import { PaymentCorrectionModal } from './PaymentCorrectionModal';
 import { ResidentFormModal } from './ResidentFormModal';
 import { uploadFileToGoogleDrive } from '../services/googleDrive';
@@ -385,6 +385,10 @@ export const DuesTable: React.FC<DuesTableProps> = ({
     let attachmentName = undefined;
     let attachmentUrl = undefined;
 
+    const receiptNo = `KW-${new Date().getFullYear().toString().slice(-2)}${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${selectedResident.houseNo.padStart(3, '0')}`;
+    const today = new Date().toISOString().split('T')[0];
+    const duesDescription = `Iuran warga No. ${selectedResident.houseNo} (${selectedResident.name}) - Bulan ${selectedMonths.join(', ')} 2026`;
+
     if (formFile) {
       try {
         setIsUploadingDrive(true);
@@ -402,13 +406,15 @@ export const DuesTable: React.FC<DuesTableProps> = ({
           }
         }
 
+        const formattedFileName = formatAttachmentFileName(today, duesDescription, formFile.name);
+
         if (token) {
           setUploadStatus('Mengunggah bukti ke Google Drive...');
-          const driveRes = await uploadFileToGoogleDrive(token, formFile);
-          attachmentName = driveRes.name;
+          const driveRes = await uploadFileToGoogleDrive(token, formFile, formattedFileName);
+          attachmentName = driveRes.name || formattedFileName;
           attachmentUrl = driveRes.webViewLink;
         } else {
-          attachmentName = formFile.name;
+          attachmentName = formattedFileName;
           if (formFile.size < 800 * 1024) {
             attachmentUrl = await readFileAsDataUrl(formFile);
           } else {
@@ -417,7 +423,8 @@ export const DuesTable: React.FC<DuesTableProps> = ({
         }
       } catch (err: unknown) {
         console.error('Drive upload error:', err);
-        attachmentName = formFile.name;
+        const formattedFileName = formatAttachmentFileName(today, duesDescription, formFile.name);
+        attachmentName = formattedFileName;
         if (formFile.size < 800 * 1024) {
           attachmentUrl = await readFileAsDataUrl(formFile);
         } else {
@@ -428,9 +435,6 @@ export const DuesTable: React.FC<DuesTableProps> = ({
         setUploadStatus('');
       }
     }
-
-    const receiptNo = `KW-${new Date().getFullYear().toString().slice(-2)}${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${selectedResident.houseNo.padStart(3, '0')}`;
-    const today = new Date().toISOString().split('T')[0];
 
     const updated = residents.map((r) => {
       if (r.id !== selectedResident.id) return r;

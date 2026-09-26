@@ -165,3 +165,56 @@ export const getOfficerForDate = (
   // Jika seksi lain dan tidak ada di list
   return { name: '-', role: roleKey };
 };
+
+/**
+ * Formats uploaded attachment filename into YYYYMMDD-Keterangan.ext
+ * Example: 2026-09-24, "Kasbon Rosam", "image.jpeg" -> "20260924-Kasbon Rosam.jpeg"
+ */
+export const formatAttachmentFileName = (
+  dateStr: string,
+  description: string,
+  originalFileName: string
+): string => {
+  // 1. Format date into YYYYMMDD
+  let yyyymmdd = '';
+  if (dateStr) {
+    const cleaned = dateStr.trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(cleaned)) {
+      yyyymmdd = cleaned.slice(0, 10).replace(/-/g, '');
+    } else {
+      const d = new Date(cleaned);
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        yyyymmdd = `${y}${m}${day}`;
+      }
+    }
+  }
+
+  if (!yyyymmdd) {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    yyyymmdd = `${y}${m}${day}`;
+  }
+
+  // 2. Sanitize description (remove illegal filename characters: / \ ? % * : | " < >)
+  const cleanDesc = (description || 'Bukti')
+    .trim()
+    .replace(/[/\\?%*:|"<>]/g, '-')
+    .replace(/\s+/g, ' ');
+
+  // 3. Extract original file extension if present
+  let ext = '';
+  if (originalFileName && originalFileName.includes('.')) {
+    const parts = originalFileName.split('.');
+    const rawExt = parts[parts.length - 1];
+    if (rawExt && rawExt.length <= 5) {
+      ext = `.${rawExt.toLowerCase()}`;
+    }
+  }
+
+  return `${yyyymmdd}-${cleanDesc}${ext}`;
+};

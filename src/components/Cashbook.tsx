@@ -27,7 +27,7 @@ import {
   DebtType,
   DebtStatus,
 } from '../types';
-import { formatRupiah, formatDateIndo } from '../utils/formatters';
+import { formatRupiah, formatDateIndo, formatAttachmentFileName } from '../utils/formatters';
 import { uploadFileToGoogleDrive } from '../services/googleDrive';
 import { getAccessToken, googleSignIn } from '../services/auth';
 
@@ -422,14 +422,20 @@ export const Cashbook: React.FC<CashbookProps> = ({
           }
         }
 
+        const formattedFileName = formatAttachmentFileName(
+          formDate,
+          formDescription || 'Bukti',
+          formFile.name
+        );
+
         if (token) {
           setUploadStatus('Mengunggah bukti ke Google Drive...');
-          const driveRes = await uploadFileToGoogleDrive(token, formFile);
-          attachmentName = driveRes.name;
+          const driveRes = await uploadFileToGoogleDrive(token, formFile, formattedFileName);
+          attachmentName = driveRes.name || formattedFileName;
           attachmentUrl = driveRes.webViewLink;
         } else {
           // If user declined Google sign-in, save as persistent Data URL if under 800KB, else blob URL
-          attachmentName = formFile.name;
+          attachmentName = formattedFileName;
           if (formFile.size < 800 * 1024) {
             attachmentUrl = await readFileAsDataUrl(formFile);
           } else {
@@ -440,7 +446,12 @@ export const Cashbook: React.FC<CashbookProps> = ({
         console.error('Drive upload error:', err);
         const errMsg = err instanceof Error ? err.message : 'Gagal mengunggah file ke Google Drive.';
         setFormDriveError(errMsg);
-        attachmentName = formFile.name;
+        const formattedFileName = formatAttachmentFileName(
+          formDate,
+          formDescription || 'Bukti',
+          formFile.name
+        );
+        attachmentName = formattedFileName;
         if (formFile.size < 800 * 1024) {
           attachmentUrl = await readFileAsDataUrl(formFile);
         } else {
@@ -1231,12 +1242,20 @@ export const Cashbook: React.FC<CashbookProps> = ({
                   />
                 </div>
                 {formFile && (
-                  <p className="text-[11px] text-emerald-700 font-medium mt-1">
-                    Terpilih: <strong>{formFile.name}</strong>{' '}
-                    {isDriveConnected
-                      ? '(Akan diunggah ke Google Drive)'
-                      : '(Akan disimpan langsung)'}
-                  </p>
+                  <div className="text-[11px] font-medium mt-1.5 p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                    <p className="text-slate-600 truncate">
+                      File terpilih: <span className="font-mono text-slate-800">{formFile.name}</span>
+                    </p>
+                    <p className="text-emerald-800">
+                      Nama format di Drive:{' '}
+                      <strong className="font-mono bg-emerald-100/90 text-emerald-900 px-1.5 py-0.5 rounded border border-emerald-300 text-xs break-all">
+                        {formatAttachmentFileName(formDate, formDescription || 'Bukti', formFile.name)}
+                      </strong>
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      Format: <strong>YYYYMMDD-Keterangan</strong> • {isDriveConnected ? '✅ Siap diunggah ke Drive' : '⚠️ Klik "+ Hubungkan Google Drive" agar tersimpan ke Drive'}
+                    </p>
+                  </div>
                 )}
                 {editingTx?.attachmentName && !formFile && (
                   <div className="text-[11px] font-medium mt-1">

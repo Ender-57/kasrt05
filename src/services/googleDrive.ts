@@ -6,7 +6,8 @@ export interface DriveUploadResult {
 
 export const uploadFileToGoogleDrive = async (
   accessToken: string,
-  file: File
+  file: File,
+  customFileName?: string
 ): Promise<DriveUploadResult> => {
   const headers = {
     Authorization: `Bearer ${accessToken}`,
@@ -51,8 +52,9 @@ export const uploadFileToGoogleDrive = async (
   }
 
   // 2. Upload file using multipart upload
+  const resolvedFileName = customFileName || file.name;
   const metadata = {
-    name: file.name,
+    name: resolvedFileName,
     parents: folderId ? [folderId] : undefined,
   };
 
@@ -78,6 +80,6 @@ export const uploadFileToGoogleDrive = async (
   return {
     fileId: fileData.id,
     webViewLink: fileData.webViewLink || `https://drive.google.com/file/d/${fileData.id}/view`,
-    name: fileData.name,
+    name: fileData.name || resolvedFileName,
   };
 };

@@ -17,8 +17,10 @@ const provider = new GoogleAuthProvider();
 provider.addScope('https://www.googleapis.com/auth/spreadsheets');
 provider.addScope('https://www.googleapis.com/auth/drive.file');
 
-// In-memory access token storage (per Google Workspace skill security requirement)
-let cachedAccessToken: string | null = null;
+// In-memory & session storage access token storage (persists across page reloads in same session)
+const SESSION_TOKEN_KEY = 'google_workspace_access_token';
+let cachedAccessToken: string | null =
+  typeof window !== 'undefined' ? sessionStorage.getItem(SESSION_TOKEN_KEY) : null;
 let isSigningIn = false;
 
 export const initAuth = (
@@ -27,15 +29,15 @@ export const initAuth = (
 ) => {
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
+      const token = getAccessToken();
+      if (token) {
+        if (onAuthSuccess) onAuthSuccess(user, token);
       } else if (!isSigningIn) {
-        // If user is logged in but memory token is empty (e.g. page refreshed),
-        // we prompt them when an API sync is requested
+        // If user is logged in but memory token is empty, notify
         if (onAuthFailure) onAuthFailure();
       }
     } else {
-      cachedAccessToken = null;
+      setCachedAccessToken(null);
       if (onAuthFailure) onAuthFailure();
     }
   });
@@ -50,8 +52,8 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
       throw new Error('Gagal mendapatkan token akses dari Google.');
     }
 
-    cachedAccessToken = credential.accessToken;
-    return { user: result.user, accessToken: cachedAccessToken };
+    setCachedAccessToken(credential.accessToken);
+    return { user: result.user, accessToken: credential.accessToken };
   } catch (error: unknown) {
     console.error('Google Sign In Error:', error);
     throw error;
@@ -61,16 +63,31 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
 };
 
 export const getAccessToken = (): string | null => {
-  return cachedAccessToken;
+  if (cachedAccessToken) return cachedAccessToken;
+  if (typeof window !== 'undefined') {
+    const stored = sessionStorage.getItem(SESSION_TOKEN_KEY);
+    if (stored) {
+      cachedAccessToken = stored;
+      return stored;
+    }
+  }
+  return null;
 };
 
 export const setCachedAccessToken = (token: string | null) => {
   cachedAccessToken = token;
+  if (typeof window !== 'undefined') {
+    if (token) {
+      sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+    } else {
+      sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    }
+  }
 };
 
 export const logoutGoogle = async () => {
   await signOut(auth);
-  cachedAccessToken = null;
+  setCachedAccessToken(null);
 };
 
 export const anonymousSignIn = async () => {

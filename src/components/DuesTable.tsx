@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   CheckCircle2,
@@ -25,7 +25,16 @@ import { formatRupiah } from '../utils/formatters';
 import { PaymentCorrectionModal } from './PaymentCorrectionModal';
 import { ResidentFormModal } from './ResidentFormModal';
 import { uploadFileToGoogleDrive } from '../services/googleDrive';
-import { getAccessToken } from '../services/auth';
+import { getAccessToken, googleSignIn } from '../services/auth';
+
+const readFileAsDataUrl = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
 
 interface DuesTableProps {
   residents: Resident[];
@@ -86,6 +95,27 @@ export const DuesTable: React.FC<DuesTableProps> = ({
   const [formFile, setFormFile] = useState<File | null>(null);
   const [isUploadingDrive, setIsUploadingDrive] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string>('');
+  const [isDriveConnected, setIsDriveConnected] = useState<boolean>(() => Boolean(getAccessToken()));
+
+  useEffect(() => {
+    setIsDriveConnected(Boolean(getAccessToken()));
+  }, [isPayModalOpen]);
+
+  const handleConnectGoogleDrive = async () => {
+    try {
+      setIsUploadingDrive(true);
+      setUploadStatus('Menghubungkan Akun Google...');
+      const res = await googleSignIn();
+      if (res?.accessToken) {
+        setIsDriveConnected(true);
+      }
+    } catch (err) {
+      console.warn('Google sign-in error:', err);
+    } finally {
+      setIsUploadingDrive(false);
+      setUploadStatus('');
+    }
+  };
 
   // Edit / Add Resident Modal State
   const [isResidentModalOpen, setIsResidentModalOpen] = useState(false);
@@ -358,19 +388,41 @@ export const DuesTable: React.FC<DuesTableProps> = ({
     if (formFile) {
       try {
         setIsUploadingDrive(true);
-        setUploadStatus('Mengunggah bukti ke Google Drive...');
-        const token = await getAccessToken();
+        setUploadStatus('Memeriksa akun Google...');
+        let token = getAccessToken();
+
+        if (!token) {
+          setUploadStatus('Menghubungkan akun Google...');
+          try {
+            const res = await googleSignIn();
+            token = res?.accessToken || null;
+            if (token) setIsDriveConnected(true);
+          } catch (signInErr) {
+            console.warn('Google sign-in skipped:', signInErr);
+          }
+        }
+
         if (token) {
+          setUploadStatus('Mengunggah bukti ke Google Drive...');
           const driveRes = await uploadFileToGoogleDrive(token, formFile);
           attachmentName = driveRes.name;
           attachmentUrl = driveRes.webViewLink;
         } else {
           attachmentName = formFile.name;
+          if (formFile.size < 800 * 1024) {
+            attachmentUrl = await readFileAsDataUrl(formFile);
+          } else {
+            attachmentUrl = URL.createObjectURL(formFile);
+          }
+        }
+      } catch (err: unknown) {
+        console.error('Drive upload error:', err);
+        attachmentName = formFile.name;
+        if (formFile.size < 800 * 1024) {
+          attachmentUrl = await readFileAsDataUrl(formFile);
+        } else {
           attachmentUrl = URL.createObjectURL(formFile);
         }
-      } catch (err: any) {
-        console.error('Drive upload error:', err);
-        alert(err.message || 'Gagal mengunggah file ke Google Drive.');
       } finally {
         setIsUploadingDrive(false);
         setUploadStatus('');
@@ -1222,9 +1274,25 @@ export const DuesTable: React.FC<DuesTableProps> = ({
 
               {/* Upload Bukti File Foto / PDF */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Upload Bukti Transfer / Kwitansi (Foto / PDF) - Opsional
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Upload Bukti Transfer / Kwitansi (Foto / PDF) - Opsional
+                  </label>
+                  {isDriveConnected ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-medium border border-emerald-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Google Drive Terhubung
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleConnectGoogleDrive}
+                      className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-semibold cursor-pointer underline hover:no-underline"
+                    >
+                      + Hubungkan Google Drive
+                    </button>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
                   <input
                     type="file"
@@ -1235,11 +1303,16 @@ export const DuesTable: React.FC<DuesTableProps> = ({
                 </div>
                 {formFile && (
                   <p className="text-[11px] text-emerald-700 font-medium mt-1">
-                    Terpilih: {formFile.name}
+                    Terpilih: <strong>{formFile.name}</strong>{' '}
+                    {isDriveConnected
+                      ? '(Akan diunggah ke Google Drive)'
+                      : '(Akan disimpan langsung)'}
                   </p>
                 )}
                 <p className="text-[10px] text-slate-400 mt-1">
-                  File akan otomatis diunggah dan disimpan ke folder <strong>Bukti Kas & Iuran RT</strong> di Google Drive Anda.
+                  {isDriveConnected
+                    ? 'File akan otomatis diunggah dan disimpan ke folder "Bukti Kas & Iuran RT" di Google Drive Anda.'
+                    : 'Untuk menyimpan bukti permanen ke Google Drive, silakan klik "+ Hubungkan Google Drive".'}
                 </p>
               </div>
 

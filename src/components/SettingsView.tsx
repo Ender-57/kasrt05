@@ -48,12 +48,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onRestoreData,
   onOpenGoogleSync,
 }) => {
+  const getDisplayPin = (pin: string | undefined): string => {
+    if (!pin) return '123456';
+    if (pin === '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92') {
+      return '123456';
+    }
+    return pin;
+  };
+
   const [form, setForm] = useState<RTProfile>({ 
     ...profile,
     officers: profile.officers !== undefined ? profile.officers : INITIAL_RT_PROFILE.officers,
   });
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [pinInput, setPinInput] = useState(() => isSha256(profile.adminPin) ? '' : profile.adminPin);
+  const [pinInput, setPinInput] = useState(() => getDisplayPin(profile.adminPin));
   const [showPin, setShowPin] = useState(false);
 
   // Backup Restore Modal & Notification States (No window.alert/confirm)
@@ -75,7 +83,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       ...profile,
       officers: profile.officers !== undefined ? profile.officers : INITIAL_RT_PROFILE.officers,
     });
-    setPinInput(isSha256(profile.adminPin) ? '' : profile.adminPin);
+    setPinInput(getDisplayPin(profile.adminPin));
   }, [profile]);
 
   // New Officer form state
@@ -251,16 +259,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    let finalPin = profile.adminPin;
     const trimmed = pinInput.trim();
-    
-    if (trimmed !== '') {
-      // User entered a new PIN, hash it!
-      finalPin = isSha256(trimmed) ? trimmed : sha256Sync(trimmed);
-    } else {
-      // If pinInput is empty, we keep the original stored PIN (hashed or unhashed)
-      finalPin = profile.adminPin;
-    }
+    const finalPin = trimmed !== '' ? trimmed : (getDisplayPin(profile.adminPin) || '123456');
 
     const updatedProfile = {
       ...form,
@@ -476,15 +476,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                PIN Akses Pengurus (Mode Admin)
-              </label>
-              <div className="relative">
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-semibold text-slate-700">
+                  PIN Akses Pengurus (Mode Admin)
+                </label>
+                <span className="text-[10px] text-slate-400 font-normal">
+                  Default: 123456
+                </span>
+              </div>
+              <div className="relative flex items-center">
                 <input
                   type={showPin ? 'text' : 'password'}
+                  maxLength={10}
                   value={pinInput}
                   onChange={(e) => setPinInput(e.target.value)}
-                  placeholder={isSha256(profile.adminPin) ? "••••••" : "Ketik PIN baru..."}
+                  placeholder="Ketik 6 digit PIN..."
                   className="w-full pl-3 pr-10 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono text-center tracking-widest focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
                 <button
@@ -494,13 +500,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     e.stopPropagation();
                     setShowPin(!showPin);
                   }}
-                  className="absolute right-3 top-2 px-1 py-1 z-10 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer pointer-events-auto"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer focus:outline-hidden"
                   title={showPin ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
+                  aria-label={showPin ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
                 >
                   {showPin ? (
-                    <EyeOff className="w-5 h-5" />
+                    <EyeOff className="w-4 h-4" />
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-4 h-4" />
                   )}
                 </button>
               </div>

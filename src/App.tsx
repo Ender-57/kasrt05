@@ -9,6 +9,7 @@ import { OfficersView } from './components/OfficersView';
 import { ReceiptModal } from './components/ReceiptModal';
 import { GoogleSyncModal } from './components/GoogleSyncModal';
 import { AdminAuthModal } from './components/AdminAuthModal';
+import { AlertTriangle, X } from 'lucide-react';
 import {
   Resident,
   CashTransaction,
@@ -49,6 +50,7 @@ export default function App() {
   // Role: Viewer (Warga) vs Admin (Pengurus RT)
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
+  const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
 
   // Core Data States (synchronized in real-time with Firestore)
   const [residents, setResidents] = useState<Resident[]>(INITIAL_RESIDENTS);
@@ -185,8 +187,9 @@ export default function App() {
       });
 
       await batch.commit();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error updating residents in Firestore:', err);
+      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal memperbarui data warga di Firebase.');
     }
   };
 
@@ -214,8 +217,9 @@ export default function App() {
       });
 
       await batch.commit();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error updating debts in Firestore:', err);
+      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal memperbarui utang/piutang di Firebase.');
     }
   };
 
@@ -223,8 +227,9 @@ export default function App() {
   const handleUpdateProfile = async (newProfile: RTProfile) => {
     try {
       await saveProfile(newProfile);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error updating profile in Firestore:', err);
+      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal memperbarui profil RT di Firebase.');
     }
   };
 
@@ -236,24 +241,27 @@ export default function App() {
         id: `tx-${Date.now()}`,
       };
       await saveTransaction(tx);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error adding transaction in Firestore:', err);
+      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal menambah transaksi di Firebase.');
     }
   };
 
   const handleUpdateTransaction = async (updatedTx: CashTransaction) => {
     try {
       await saveTransaction(updatedTx);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error updating transaction in Firestore:', err);
+      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal memperbarui transaksi di Firebase.');
     }
   };
 
   const handleDeleteTransaction = async (id: string) => {
     try {
       await deleteTransaction(id);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error deleting transaction in Firestore:', err);
+      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal menghapus transaksi di Firebase.');
     }
   };
 
@@ -453,6 +461,25 @@ export default function App() {
         profile={profile}
         onGoogleSignIn={handleGoogleSignIn}
       />
+
+      {/* Database Error Toast Notification */}
+      {dbErrorMessage && (
+        <div className="fixed bottom-6 right-6 z-50 animate-bounce-in max-w-md">
+          <div className="p-4 rounded-2xl bg-rose-900 text-white border border-rose-700 shadow-2xl flex items-start gap-3 text-xs">
+            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-1">
+              <p className="font-bold text-rose-100">Gagal Menyimpan ke Firebase</p>
+              <p className="text-rose-200 leading-relaxed">{dbErrorMessage}</p>
+            </div>
+            <button
+              onClick={() => setDbErrorMessage(null)}
+              className="p-1 text-rose-300 hover:text-white rounded-lg cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

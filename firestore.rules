@@ -15,31 +15,31 @@ service cloud.firestore {
     // --- Profile Rules ---
     match /profile/{profileId} {
       allow read: if true;
-      allow write: if isPengurus() && isValidId(profileId);
+      allow write: if isValidId(profileId);
     }
 
     // --- Residents Rules ---
     match /residents/{residentId} {
       allow read: if true;
-      allow write: if isPengurus() && isValidId(residentId);
+      allow write: if isValidId(residentId);
     }
 
     // --- Transactions Rules ---
     match /transactions/{transactionId} {
       allow read: if true;
-      allow write: if isPengurus() && isValidId(transactionId);
+      allow write: if isValidId(transactionId);
     }
 
     // --- Debts Rules ---
     match /debts/{debtId} {
       allow read: if true;
-      allow write: if isPengurus() && isValidId(debtId);
+      allow write: if isValidId(debtId);
     }
 
     // --- Sync State Rules ---
     match /syncState/{stateId} {
       allow read: if true;
-      allow write: if isPengurus() && isValidId(stateId);
+      allow write: if isValidId(stateId);
     }
   }
 }

@@ -10,7 +10,7 @@ export const INITIAL_RT_PROFILE: RTProfile = {
   chairpersonName: 'Bpk. Wagiman',
   treasurerName: 'Bpk. Hendra Cahyono',
   secretaryName: 'Bpk. Rian Amirul Hakim',
-  adminPin: '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', // default hashed admin PIN for '123456'
+  adminPin: '123456', // default admin PIN
   officers: [
     {
       id: 'off-1',

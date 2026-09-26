@@ -86,8 +86,10 @@ export const seedInitialDataIfEmpty = async () => {
       await batch.commit();
       console.log('Successfully seeded initial data to Firestore!');
     } else {
-      // If document currently holds old dummy chairperson name, auto-update it to Bpk. Wagiman
+      // If document currently holds old dummy chairperson name or raw hash PIN, auto-update it
       const currentProfileData = profileSnap.data();
+      const updates: Record<string, unknown> = {};
+
       if (currentProfileData?.chairpersonName === 'Bpk. H. Bambang Sudiro') {
         const updatedOfficers = Array.isArray(currentProfileData.officers)
           ? currentProfileData.officers.map((off: { id: string; name: string; role: string }) =>
@@ -97,10 +99,16 @@ export const seedInitialDataIfEmpty = async () => {
             )
           : INITIAL_RT_PROFILE.officers;
 
-        await updateDoc(profileRef, {
-          chairpersonName: 'Bpk. Wagiman',
-          officers: updatedOfficers,
-        });
+        updates.chairpersonName = 'Bpk. Wagiman';
+        updates.officers = updatedOfficers;
+      }
+
+      if (currentProfileData?.adminPin === '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92') {
+        updates.adminPin = '123456';
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await updateDoc(profileRef, updates);
       }
     }
   } catch (err) {

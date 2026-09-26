@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   signInWithPopup,
+  signInAnonymously,
   GoogleAuthProvider,
   onAuthStateChanged,
   User,
@@ -70,4 +71,13 @@ export const setCachedAccessToken = (token: string | null) => {
 export const logoutGoogle = async () => {
   await signOut(auth);
   cachedAccessToken = null;
+};
+
+export const anonymousSignIn = async () => {
+  try {
+    return await signInAnonymously(auth);
+  } catch (err) {
+    console.warn('Anonymous sign-in not available or disabled:', err);
+    return null;
+  }
 };

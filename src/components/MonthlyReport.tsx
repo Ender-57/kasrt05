@@ -935,6 +935,73 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
         </table>
         ` : ''}
 
+        ${(() => {
+          const chartSvgWidth = 700;
+          const chartSvgHeight = 210;
+          const paddingLeft = 55;
+          const paddingRight = 20;
+          const paddingTop = 20;
+          const paddingBottom = 35;
+          const innerWidth = chartSvgWidth - paddingLeft - paddingRight;
+          const innerHeight = chartSvgHeight - paddingTop - paddingBottom;
+
+          const maxVal = Math.max(...activeChartData.map(d => Math.max(d.pemasukan, d.pengeluaran, d.saldoBerjalan)), 1000000);
+          const stepX = innerWidth / (activeChartData.length || 1);
+          const barWidth = Math.max(4, Math.min(20, stepX * 0.35));
+
+          const points = activeChartData.map((d, i) => {
+            const x = paddingLeft + (i + 0.5) * stepX;
+            const yVal = paddingTop + innerHeight - (d.saldoBerjalan / maxVal) * innerHeight;
+            return { x, y: Math.max(paddingTop, Math.min(paddingTop + innerHeight, yVal)), d };
+          });
+
+          const polylinePoints = points.map(p => `${p.x},${p.y}`).join(' ');
+          const areaPoints = `${paddingLeft},${paddingTop + innerHeight} ` + points.map(p => `${p.x},${p.y}`).join(' ') + ` ${paddingLeft + innerWidth},${paddingTop + innerHeight}`;
+
+          return activeChartData.length === 0 ? '' : `
+            <div style="margin: 16px 0; page-break-inside: avoid;">
+              <div style="font-weight: bold; font-size: 10.5pt; color: #065f46; margin-bottom: 6px; border-left: 4px solid #10b981; padding-left: 8px; text-transform: uppercase;">
+                Grafik Tren Pemasukan, Pengeluaran & Saldo Berjalan (${chartGranularity})
+              </div>
+              <svg viewBox="0 0 ${chartSvgWidth} ${chartSvgHeight}" style="width: 100%; height: auto; background: #ffffff; border-radius: 8px; border: 1px solid #cbd5e1;">
+                <line x1="${paddingLeft}" y1="${paddingTop}" x2="${chartSvgWidth - paddingRight}" y2="${paddingTop}" stroke="#e2e8f0" stroke-dasharray="3 3"/>
+                <line x1="${paddingLeft}" y1="${paddingTop + innerHeight * 0.5}" x2="${chartSvgWidth - paddingRight}" y2="${paddingTop + innerHeight * 0.5}" stroke="#e2e8f0" stroke-dasharray="3 3"/>
+                <line x1="${paddingLeft}" y1="${paddingTop + innerHeight}" x2="${chartSvgWidth - paddingRight}" y2="${paddingTop + innerHeight}" stroke="#94a3b8" stroke-width="1"/>
+
+                <text x="${paddingLeft - 6}" y="${paddingTop + 4}" font-size="8" fill="#64748b" text-anchor="end">Rp ${(maxVal / 1000000).toFixed(1)}jt</text>
+                <text x="${paddingLeft - 6}" y="${paddingTop + innerHeight * 0.5 + 4}" font-size="8" fill="#64748b" text-anchor="end">Rp ${((maxVal * 0.5) / 1000000).toFixed(1)}jt</text>
+                <text x="${paddingLeft - 6}" y="${paddingTop + innerHeight + 4}" font-size="8" fill="#64748b" text-anchor="end">Rp 0</text>
+
+                <polygon points="${areaPoints}" fill="#d1fae5" fill-opacity="0.4"/>
+                <polyline points="${polylinePoints}" fill="none" stroke="#059669" stroke-width="2"/>
+
+                ${activeChartData.map((d, i) => {
+                  const x = paddingLeft + (i + 0.5) * stepX;
+                  const hIn = (d.pemasukan / maxVal) * innerHeight;
+                  const yIn = paddingTop + innerHeight - hIn;
+                  const hOut = (d.pengeluaran / maxVal) * innerHeight;
+                  const yOut = paddingTop + innerHeight - hOut;
+
+                  return `
+                    <rect x="${x - barWidth - 1}" y="${yIn}" width="${barWidth}" height="${Math.max(1, hIn)}" fill="#10b981" rx="2"/>
+                    <rect x="${x + 1}" y="${yOut}" width="${barWidth}" height="${Math.max(1, hOut)}" fill="#f43f5e" rx="2"/>
+                    <text x="${x}" y="${paddingTop + innerHeight + 14}" font-size="8" fill="#475569" text-anchor="middle">${d.displayLabel}</text>
+                  `;
+                }).join('')}
+
+                <g transform="translate(${paddingLeft}, ${chartSvgHeight - 8})">
+                  <rect x="0" y="-6" width="8" height="8" fill="#10b981" rx="1"/>
+                  <text x="12" y="1" font-size="8" fill="#1e293b">Pemasukan</text>
+                  <rect x="80" y="-6" width="8" height="8" fill="#f43f5e" rx="1"/>
+                  <text x="92" y="1" font-size="8" fill="#1e293b">Pengeluaran</text>
+                  <line x1="160" y1="-2" x2="172" y2="-2" stroke="#059669" stroke-width="2"/>
+                  <text x="178" y="1" font-size="8" fill="#1e293b">Saldo Berjalan</text>
+                </g>
+              </svg>
+            </div>
+          `;
+        })()}
+
         <table class="signatures">
           <tr>
             <td>
@@ -2257,6 +2324,71 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
                     </table>
                   </div>
                 )}
+
+                {/* Trend Chart Graphic Section */}
+                <div className="mt-5 mb-4 p-4 bg-slate-50 rounded-xl border border-slate-300">
+                  <h4 className="font-bold uppercase text-xs text-emerald-900 mb-3 flex items-center gap-1.5 border-l-4 border-emerald-500 pl-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-600" />
+                    <span>Grafik Tren Pemasukan, Pengeluaran & Saldo Berjalan ({chartGranularity})</span>
+                  </h4>
+                  {activeChartData.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-6 text-center">Tidak ada data transaksi kas pada periode ini.</p>
+                  ) : (
+                    <div className="h-64 w-full bg-white p-3 rounded-lg border border-slate-200">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={activeChartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                          <XAxis
+                            dataKey="displayLabel"
+                            tick={{ fontSize: 10, fill: '#64748b' }}
+                            axisLine={false}
+                            tickLine={false}
+                          />
+                          <YAxis
+                            tick={{ fontSize: 9, fill: '#64748b' }}
+                            tickFormatter={(val) => `Rp ${(val / 1000000).toFixed(1)}jt`}
+                            axisLine={false}
+                            tickLine={false}
+                          />
+                          <RechartsTooltip content={<CustomChartTooltip />} />
+                          <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '5px' }} />
+
+                          {(chartMetricView === 'all' || chartMetricView === 'balance') && (
+                            <Area
+                              type="monotone"
+                              dataKey="saldoBerjalan"
+                              name="Saldo Berjalan"
+                              fill="#d1fae5"
+                              stroke="#059669"
+                              strokeWidth={2}
+                              fillOpacity={0.4}
+                            />
+                          )}
+
+                          {(chartMetricView === 'all' || chartMetricView === 'cashflow') && (
+                            <Bar
+                              dataKey="pemasukan"
+                              name="Pemasukan Kas"
+                              fill="#10b981"
+                              radius={[3, 3, 0, 0]}
+                              maxBarSize={28}
+                            />
+                          )}
+
+                          {(chartMetricView === 'all' || chartMetricView === 'cashflow') && (
+                            <Bar
+                              dataKey="pengeluaran"
+                              name="Pengeluaran Kas"
+                              fill="#f43f5e"
+                              radius={[3, 3, 0, 0]}
+                              maxBarSize={28}
+                            />
+                          )}
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </div>
 
                 {/* Signatures & Stamp */}
                 {(() => {

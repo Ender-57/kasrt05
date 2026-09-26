@@ -833,7 +833,13 @@ export const DuesTable: React.FC<DuesTableProps> = ({
 
       {/* Main Dues Table (Exact matrix matching user CSV) */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto max-h-[650px] overflow-y-auto touch-pan-x">
+        <div className="bg-emerald-50/90 border-b border-emerald-200 px-3 py-2 text-[11px] text-emerald-900 flex items-center justify-between sm:hidden font-semibold">
+          <div className="flex items-center gap-1.5">
+            <Info className="w-4 h-4 shrink-0 text-emerald-700 animate-pulse" />
+            <span>Geser tabel ke samping (kiri/kanan) untuk melihat bulan lainnya ↔</span>
+          </div>
+        </div>
+        <div className="overflow-x-auto max-h-[650px] overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse min-w-[1200px]">
             <thead>
               <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 select-none">

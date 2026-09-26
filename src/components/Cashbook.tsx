@@ -697,7 +697,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
 
           {/* Debt Table */}
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto max-h-[600px] overflow-y-auto touch-pan-x">
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <table className="w-full text-left text-xs border-collapse min-w-[900px]">
                 <thead>
                   <tr className="bg-slate-900 text-white font-bold select-none text-[11px]">
@@ -960,7 +960,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
 
       {/* Transaction List Table */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto max-h-[650px] overflow-y-auto touch-pan-x">
+        <div className="overflow-x-auto max-h-[650px] overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse min-w-[850px]">
             <thead>
               <tr className="bg-blue-600 text-white font-bold select-none text-[11px]">

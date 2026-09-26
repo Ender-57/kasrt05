@@ -600,7 +600,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
       ) : (
         /* TABLE VIEW MODE */
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto touch-pan-x">
+          <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse min-w-[950px]">
               <thead>
                 <tr className="bg-slate-100/90 text-slate-800 font-bold border-b border-slate-200 select-none">

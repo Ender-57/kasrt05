@@ -1761,7 +1761,7 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
                   Tabel nilai angka pemasukan, pengeluaran, surplus, dan saldo berjalan
                 </p>
 
-                <div className="overflow-x-auto max-h-64 overflow-y-auto touch-pan-x">
+                <div className="overflow-x-auto max-h-64 overflow-y-auto">
                   <table className="w-full text-left text-xs min-w-[600px]">
                     <thead className="sticky top-0 bg-white">
                       <tr className="bg-slate-50 text-slate-700 font-bold border-y border-slate-200">
@@ -1826,7 +1826,7 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
             </div>
           </div>
 
-          <div className="overflow-x-auto touch-pan-x">
+          <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse min-w-[800px]">
               <thead>
                 <tr className="bg-slate-900 text-white font-bold">

@@ -123,8 +123,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Desktop Navigation Tabs (Responsive for md, lg, xl) */}
-          <nav className="hidden md:flex items-center gap-1 xl:gap-1.5 overflow-x-auto no-scrollbar py-1">
+          {/* Desktop Navigation Tabs (Responsive for lg, xl) */}
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 overflow-x-auto no-scrollbar py-1">
             <button
               onClick={() => setActiveTab('dues')}
               className={`flex items-center gap-1.5 px-2.5 xl:px-3.5 py-2 rounded-xl text-xs xl:text-sm transition-all cursor-pointer whitespace-nowrap ${
@@ -193,6 +193,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     ? 'bg-emerald-800 text-white font-bold shadow-2xs border border-emerald-900'
                     : 'bg-emerald-100/70 text-emerald-950 hover:bg-emerald-200/80 font-semibold border border-emerald-200/60'
                 }`}
+                title="Pengaturan RT"
               >
                 <Sliders className="w-4 h-4 shrink-0" />
                 <span>Pengaturan</span>
@@ -238,13 +239,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Mobile hamburger */}
-          <div className="flex md:hidden items-center gap-2 shrink-0">
+          <div className="flex lg:hidden items-center gap-2 shrink-0">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-xl text-slate-700 bg-slate-100 hover:text-slate-900 hover:bg-slate-200 cursor-pointer transition-colors"
+              className="px-3 py-2 rounded-xl text-emerald-900 bg-emerald-100 hover:bg-emerald-200 font-bold cursor-pointer transition-colors shadow-2xs border border-emerald-300 flex items-center gap-2"
               aria-label="Menu Navigasi"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {mobileMenuOpen ? <X className="w-5 h-5 text-emerald-800" /> : <Menu className="w-5 h-5 text-emerald-800" />}
+              <span className="text-xs font-extrabold text-emerald-900">Menu</span>
             </button>
           </div>
         </div>
@@ -409,22 +411,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <button
           onClick={() => setActiveTab('report')}
-          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all cursor-pointer ${
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-xl transition-all cursor-pointer ${
             activeTab === 'report' ? 'text-emerald-700 font-bold scale-105' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           <BarChart3 className={`w-5 h-5 ${activeTab === 'report' ? 'text-emerald-600' : 'text-slate-400'}`} />
           <span className="text-[10px] leading-tight">Laporan</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('officers')}
-          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all cursor-pointer ${
-            activeTab === 'officers' ? 'text-emerald-700 font-bold scale-105' : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Contact className={`w-5 h-5 ${activeTab === 'officers' ? 'text-emerald-600' : 'text-slate-400'}`} />
-          <span className="text-[10px] leading-tight">Pengurus</span>
         </button>
       </div>
     </header>

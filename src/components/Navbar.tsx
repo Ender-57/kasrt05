@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { RTLogo } from './RTLogo';
 import {
   Shield,
@@ -9,8 +9,6 @@ import {
   Wallet,
   Users,
   BarChart3,
-  Menu,
-  X,
   Lock,
   CreditCard,
   Contact,
@@ -43,8 +41,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenGoogleSync,
   syncState,
 }) => {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   const handleLogout = async () => {
     await logoutGoogle();
     onExitAdmin();
@@ -123,8 +119,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Desktop Navigation Tabs (Responsive for lg, xl) */}
-          <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 overflow-x-auto no-scrollbar py-1">
+          {/* Navigation Tabs (Scrollable & Responsive) */}
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 overflow-x-auto no-scrollbar py-1 px-1">
             <button
               onClick={() => setActiveTab('dues')}
               className={`flex items-center gap-1.5 px-2.5 xl:px-3.5 py-2 rounded-xl text-xs xl:text-sm transition-all cursor-pointer whitespace-nowrap ${
@@ -202,12 +198,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           {/* Right Actions: Google Workspace integration & Auth */}
-          <div className="hidden lg:flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             {/* Google Drive / Sheets Sync Button */}
             {isAdmin && (
               <button
                 onClick={onOpenGoogleSync}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 rounded-xl shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 rounded-xl shadow-2xs transition-all cursor-pointer whitespace-nowrap"
                 title="Sinkronkan data kas ke Google Sheets & Drive"
               >
                 <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -222,7 +218,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {userEmail && (
               <div className="flex items-center gap-1.5 pl-1">
                 <div
-                  className="px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 max-w-[120px] xl:max-w-[150px] truncate"
+                  className="hidden md:block px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 max-w-[120px] xl:max-w-[150px] truncate"
                   title={userEmail}
                 >
                   {userEmail}
@@ -237,148 +233,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
           </div>
-
-          {/* Mobile hamburger */}
-          <div className="flex lg:hidden items-center gap-2 shrink-0">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="px-3 py-2 rounded-xl text-emerald-900 bg-emerald-100 hover:bg-emerald-200 font-bold cursor-pointer transition-colors shadow-2xs border border-emerald-300 flex items-center gap-2"
-              aria-label="Menu Navigasi"
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5 text-emerald-800" /> : <Menu className="w-5 h-5 text-emerald-800" />}
-              <span className="text-xs font-extrabold text-emerald-900">Menu</span>
-            </button>
-          </div>
         </div>
-
-        {/* Mobile Navigation Dropdown */}
-        {mobileMenuOpen && (
-          <div className="md:hidden py-3 border-t border-slate-200 space-y-1.5 animate-fade-in">
-            <button
-              onClick={() => {
-                setActiveTab('dues');
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm transition-all ${
-                activeTab === 'dues'
-                  ? 'bg-emerald-800 text-white font-bold shadow-2xs'
-                  : 'bg-emerald-100/80 text-emerald-950 font-medium'
-              }`}
-            >
-              <CreditCard className="w-4 h-4" />
-              <span>Iuran Warga</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setActiveTab('cashbook');
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm transition-all ${
-                activeTab === 'cashbook'
-                  ? 'bg-emerald-800 text-white font-bold shadow-2xs'
-                  : 'bg-emerald-100/80 text-emerald-950 font-medium'
-              }`}
-            >
-              <Wallet className="w-4 h-4" />
-              <span>Buku Kas</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setActiveTab('residents');
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm transition-all ${
-                activeTab === 'residents'
-                  ? 'bg-emerald-800 text-white font-bold shadow-2xs'
-                  : 'bg-emerald-100/80 text-emerald-950 font-medium'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>Data Warga</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setActiveTab('report');
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm transition-all ${
-                activeTab === 'report'
-                  ? 'bg-emerald-800 text-white font-bold shadow-2xs'
-                  : 'bg-emerald-100/80 text-emerald-950 font-medium'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>Laporan Keuangan</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setActiveTab('officers');
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm transition-all ${
-                activeTab === 'officers'
-                  ? 'bg-emerald-800 text-white font-bold shadow-2xs'
-                  : 'bg-emerald-100/80 text-emerald-950 font-medium'
-              }`}
-            >
-              <Contact className="w-4 h-4" />
-              <span>Pengurus RT 05</span>
-            </button>
-
-            {isAdmin && (
-              <button
-                onClick={() => {
-                  setActiveTab('settings');
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm transition-all ${
-                  activeTab === 'settings'
-                    ? 'bg-emerald-800 text-white font-bold shadow-2xs'
-                    : 'bg-emerald-100/80 text-emerald-950 font-medium'
-                }`}
-              >
-                <Sliders className="w-4 h-4" />
-                <span>Pengaturan RT</span>
-              </button>
-            )}
-
-            <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
-              {isAdmin && (
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onOpenGoogleSync();
-                  }}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl"
-                >
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                  <span>Google Drive / Sheets</span>
-                </button>
-              )}
-
-              {!isAdmin && (
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    onRequestAdmin();
-                  }}
-                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold bg-emerald-600 text-white rounded-xl shadow-xs"
-                >
-                  <Shield className="w-4 h-4" />
-                  <span>Login Pengurus RT</span>
-                </button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Fixed Mobile Bottom Navigation Bar for iOS & Android */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-lg px-2 py-1.5 flex items-center justify-around pb-safe mobile-bottom-nav">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-lg px-2 py-1.5 flex items-center justify-around pb-safe mobile-bottom-nav">
         <button
           onClick={() => setActiveTab('dues')}
           className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all cursor-pointer ${
@@ -411,13 +270,35 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <button
           onClick={() => setActiveTab('report')}
-          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-xl transition-all cursor-pointer ${
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all cursor-pointer ${
             activeTab === 'report' ? 'text-emerald-700 font-bold scale-105' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           <BarChart3 className={`w-5 h-5 ${activeTab === 'report' ? 'text-emerald-600' : 'text-slate-400'}`} />
           <span className="text-[10px] leading-tight">Laporan</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('officers')}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all cursor-pointer ${
+            activeTab === 'officers' ? 'text-emerald-700 font-bold scale-105' : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Contact className={`w-5 h-5 ${activeTab === 'officers' ? 'text-emerald-600' : 'text-slate-400'}`} />
+          <span className="text-[10px] leading-tight">Pengurus</span>
+        </button>
+
+        {isAdmin && (
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex flex-col items-center justify-center gap-0.5 py-1 px-2 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'settings' ? 'text-emerald-700 font-bold scale-105' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Sliders className={`w-5 h-5 ${activeTab === 'settings' ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span className="text-[10px] leading-tight">Pengaturan</span>
+          </button>
+        )}
       </div>
     </header>
   );

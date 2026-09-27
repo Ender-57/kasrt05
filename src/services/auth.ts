@@ -2,6 +2,8 @@ import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signInAnonymously,
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -27,6 +29,21 @@ export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
+  // Catch redirect login result on boot (for mobile users)
+  getRedirectResult(auth)
+    .then((result) => {
+      if (result) {
+        const credential = GoogleAuthProvider.credentialFromResult(result);
+        if (credential?.accessToken) {
+          setCachedAccessToken(credential.accessToken);
+          if (onAuthSuccess) onAuthSuccess(result.user, credential.accessToken);
+        }
+      }
+    })
+    .catch((error) => {
+      console.error('Error handling redirect result:', error);
+    });
+
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
       const token = getAccessToken();
@@ -46,14 +63,27 @@ export const initAuth = (
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
   try {
     isSigningIn = true;
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Gagal mendapatkan token akses dari Google.');
-    }
 
-    setCachedAccessToken(credential.accessToken);
-    return { user: result.user, accessToken: credential.accessToken };
+    // Detect if device is a mobile browser
+    const isMobile =
+      typeof window !== 'undefined' &&
+      /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (isMobile) {
+      // Mobile browsers handle popups poorly; redirect is the industry standard
+      await signInWithRedirect(auth, provider);
+      return null;
+    } else {
+      // Desktop browsers handle popups perfectly
+      const result = await signInWithPopup(auth, provider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (!credential?.accessToken) {
+        throw new Error('Gagal mendapatkan token akses dari Google.');
+      }
+
+      setCachedAccessToken(credential.accessToken);
+      return { user: result.user, accessToken: credential.accessToken };
+    }
   } catch (error: unknown) {
     console.error('Google Sign In Error:', error);
     throw error;

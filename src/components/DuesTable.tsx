@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Resident, MonthKey, MONTHS, RTProfile, CashTransaction } from '../types';
 import { formatRupiah, formatAttachmentFileName } from '../utils/formatters';
+import { runSelfHealing } from '../utils/selfHealing';
 import { PaymentCorrectionModal } from './PaymentCorrectionModal';
 import { ResidentFormModal } from './ResidentFormModal';
 import { uploadFileToGoogleDrive } from '../services/googleDrive';
@@ -83,6 +84,11 @@ export const DuesTable: React.FC<DuesTableProps> = ({
     });
     return masuk - keluar;
   }, [transactions]);
+
+  const [isSelfHealingSyncing, setIsSelfHealingSyncing] = useState(false);
+  const healingSummary = useMemo(() => {
+    return runSelfHealing(residents, transactions);
+  }, [residents, transactions]);
 
   // Quick Payment Modal State
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
@@ -624,6 +630,50 @@ export const DuesTable: React.FC<DuesTableProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Self-Healing / Data Synchronization Banner */}
+      {healingSummary.healedCount > 0 && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-l-4 border-amber-500 p-4 rounded-xl shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-amber-100 text-amber-800 rounded-lg shrink-0 mt-0.5 sm:mt-0">
+              <AlertTriangle className="w-5 h-5 text-amber-700" />
+            </div>
+            <div>
+              <h4 className="font-bold text-xs sm:text-sm text-slate-900 leading-tight">
+                Sinkronisasi Pembayaran Diperlukan ({healingSummary.healedCount} Rekod)
+              </h4>
+              <p className="text-[11px] text-slate-600 mt-1">
+                Terdapat {healingSummary.healedCount} transaksi pembayaran iuran di Buku Kas yang belum tercatat pada daftar Iuran Warga (karena kendala penulisan database sebelumnya).
+              </p>
+            </div>
+          </div>
+          {isAdmin ? (
+            <button
+              type="button"
+              disabled={isSelfHealingSyncing}
+              onClick={async () => {
+                try {
+                  setIsSelfHealingSyncing(true);
+                  await onUpdateResidents(healingSummary.healedResidents);
+                  alert(`Berhasil menyelaraskan ${healingSummary.healedCount} pembayaran iuran warga secara aman!`);
+                } catch (err) {
+                  alert("Gagal melakukan sinkronisasi: " + (err instanceof Error ? err.message : String(err)));
+                } finally {
+                  setIsSelfHealingSyncing(false);
+                }
+              }}
+              className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${isSelfHealingSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSelfHealingSyncing ? 'Menyinkronkan...' : 'Sinkronkan & Amankan Data'}</span>
+            </button>
+          ) : (
+            <div className="text-[11px] font-semibold text-amber-800 bg-amber-100/50 px-2.5 py-1 rounded-lg border border-amber-200">
+              Menunggu Pengurus menyelaraskan...
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Quick Resident Search Dropdown Section */}
       <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-emerald-200/90 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">

@@ -39,6 +39,7 @@ import {
   saveSyncState,
   resetDatabaseToInitial,
   restoreDatabaseFromBackup,
+  sanitizeData,
   db,
 } from './services/db';
 import { writeBatch, doc } from 'firebase/firestore';
@@ -175,7 +176,7 @@ export default function App() {
       newResidents.forEach((nr) => {
         const cr = currentMap.get(nr.id);
         if (!cr || JSON.stringify(cr) !== JSON.stringify(nr)) {
-          batch.set(doc(db, 'residents', nr.id), nr);
+          batch.set(doc(db, 'residents', nr.id), sanitizeData(nr));
         }
       });
 
@@ -205,7 +206,7 @@ export default function App() {
       newDebts.forEach((nd) => {
         const cd = currentMap.get(nd.id);
         if (!cd || JSON.stringify(cd) !== JSON.stringify(nd)) {
-          batch.set(doc(db, 'debts', nd.id), nd);
+          batch.set(doc(db, 'debts', nd.id), sanitizeData(nd));
         }
       });
 

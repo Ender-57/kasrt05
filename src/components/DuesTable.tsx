@@ -447,18 +447,23 @@ export const DuesTable: React.FC<DuesTableProps> = ({
         const existingAmount = existing?.paid ? existing.amount : 0;
         const totalAmountForMonth = existingAmount + Math.round(perMonthNominal);
 
+        const paymentNoteValue = paymentNote 
+          ? (existing?.note ? `${existing.note}; ${paymentNote}` : paymentNote)
+          : existingAmount > 0 
+          ? `Pelunasan cicilan (sebelumnya titip ${formatRupiah(existingAmount)})`
+          : null;
+
         newPayments[m] = {
           paid: true,
           amount: totalAmountForMonth,
           paidAt: today,
           receiptNo,
-          note: paymentNote 
-            ? (existing?.note ? `${existing.note}; ${paymentNote}` : paymentNote)
-            : existingAmount > 0 
-            ? `Pelunasan cicilan (sebelumnya titip ${formatRupiah(existingAmount)})`
-            : undefined,
           paymentMethod,
         };
+
+        if (paymentNoteValue !== null) {
+          newPayments[m].note = paymentNoteValue;
+        }
       });
 
       const recalculatedArrears = calculateArrearsForResident(r, newPayments, cutoffMonth);
@@ -475,7 +480,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
 
     // Optionally sync into Cashbook as MASUK transaction
     if (syncToCashbook) {
-      onAddTransaction({
+      const txPayload: Omit<CashTransaction, 'id'> = {
         date: today,
         type: 'MASUK',
         category: 'Iuran Warga',
@@ -483,9 +488,16 @@ export const DuesTable: React.FC<DuesTableProps> = ({
         amount: calculatedPayAmount,
         recordedBy: profile.treasurerName || 'Bendahara RT',
         receiptNumber: receiptNo,
-        attachmentName,
-        attachmentUrl,
-      });
+      };
+
+      if (attachmentName !== undefined) {
+        txPayload.attachmentName = attachmentName;
+      }
+      if (attachmentUrl !== undefined) {
+        txPayload.attachmentUrl = attachmentUrl;
+      }
+
+      onAddTransaction(txPayload);
     }
 
     setIsPayModalOpen(false);

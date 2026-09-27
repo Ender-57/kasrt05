@@ -188,6 +188,29 @@ export const subscribeToDebts = (onUpdate: (debts: DebtItem[]) => void) => {
 };
 
 /**
+ * Helper to recursively remove undefined fields from data before saving to Firestore.
+ * Firestore throws errors when encountering undefined field values.
+ */
+export function sanitizeData<T>(obj: T): T {
+  if (obj === null || obj === undefined) {
+    return null as unknown as T;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeData) as unknown as T;
+  }
+  if (typeof obj === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = sanitizeData(value);
+      }
+    }
+    return cleaned as T;
+  }
+  return obj;
+}
+
+/**
  * Mutator functions (saves single/multiple documents)
  */
 export const saveProfile = async (profile: RTProfile) => {
@@ -196,31 +219,31 @@ export const saveProfile = async (profile: RTProfile) => {
     ...profile,
     adminPin: resolveAdminPin(profile.adminPin),
   };
-  await setDoc(ref, cleanProfile);
+  await setDoc(ref, sanitizeData(cleanProfile));
 };
 
 export const saveSyncState = async (syncState: GoogleSyncState) => {
   const ref = doc(db, 'syncState', SYNC_STATE_DOC_ID);
-  await setDoc(ref, syncState);
+  await setDoc(ref, sanitizeData(syncState));
 };
 
 export const saveResident = async (resident: Resident) => {
   const ref = doc(db, 'residents', resident.id);
-  await setDoc(ref, resident);
+  await setDoc(ref, sanitizeData(resident));
 };
 
 export const saveResidentsBatch = async (residents: Resident[]) => {
   const batch = writeBatch(db);
   residents.forEach((r) => {
     const ref = doc(db, 'residents', r.id);
-    batch.set(ref, r);
+    batch.set(ref, sanitizeData(r));
   });
   await batch.commit();
 };
 
 export const saveTransaction = async (tx: CashTransaction) => {
   const ref = doc(db, 'transactions', tx.id);
-  await setDoc(ref, tx);
+  await setDoc(ref, sanitizeData(tx));
 };
 
 export const deleteTransaction = async (id: string) => {
@@ -230,14 +253,14 @@ export const deleteTransaction = async (id: string) => {
 
 export const saveDebt = async (debt: DebtItem) => {
   const ref = doc(db, 'debts', debt.id);
-  await setDoc(ref, debt);
+  await setDoc(ref, sanitizeData(debt));
 };
 
 export const saveDebtsBatch = async (debts: DebtItem[]) => {
   const batch = writeBatch(db);
   debts.forEach((d) => {
     const ref = doc(db, 'debts', d.id);
-    batch.set(ref, d);
+    batch.set(ref, sanitizeData(d));
   });
   await batch.commit();
 };

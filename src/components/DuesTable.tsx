@@ -20,7 +20,9 @@ import {
   X,
   MessageCircle,
   Printer,
+  Share2,
 } from 'lucide-react';
+import { toPng } from 'html-to-image';
 import { Resident, MonthKey, MONTHS, RTProfile, CashTransaction, IncidentalDuesProgram } from '../types';
 import { formatRupiah, formatAttachmentFileName } from '../utils/formatters';
 import { runSelfHealing } from '../utils/selfHealing';
@@ -76,12 +78,74 @@ export const DuesTable: React.FC<DuesTableProps> = ({
   const [filterTab, setFilterTab] = useState<'ALL' | 'LUNAS' | 'NUNGGAK' | 'KOSONG'>('ALL');
   const [copiedBankNo, setCopiedBankNo] = useState(false);
   const [selectedArrearsResident, setSelectedArrearsResident] = useState<Resident | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   const handleCopyBankNo = () => {
     const accountNo = profile.bankAccountNo || '1030013542580';
     navigator.clipboard.writeText(accountNo);
     setCopiedBankNo(true);
     setTimeout(() => setCopiedBankNo(false), 2000);
+  };
+
+  const handleShareWhatsApp = async (resident: Resident, totalArrears: number, unpaidMonths: any[]) => {
+    setIsSharing(true);
+    try {
+      const element = document.getElementById('arrears-card-to-capture');
+      if (element) {
+        const originalStyle = element.style.cssText;
+        element.style.padding = '24px';
+        element.style.width = '420px';
+        element.style.maxWidth = '100%';
+        element.style.borderRadius = '16px';
+        element.style.backgroundColor = '#ffffff';
+
+        const dataUrl = await toPng(element, {
+          backgroundColor: '#ffffff',
+          style: {
+            transform: 'scale(1)',
+            borderRadius: '16px',
+          },
+          cacheBust: true,
+        });
+
+        element.style.cssText = originalStyle;
+
+        const link = document.createElement('a');
+        link.download = `Tagihan_Iuran_No_${resident.houseNo}_${resident.name}.png`;
+        link.href = dataUrl;
+        link.click();
+      }
+    } catch (error) {
+      console.error('Error generating billing image:', error);
+    } finally {
+      setIsSharing(false);
+    }
+
+    const unpaidMonthsStr = unpaidMonths.map((u) => u.month).join(', ');
+    const waMessage =
+      `📢 *PENGINGAT PEMBAYARAN IURAN WARGA RT ${profile.rtNumber}*\n\n` +
+      `Yth. Bapak/Ibu *${resident.name}* (Rumah No. *${resident.houseNo}*),\n\n` +
+      `Kami menyampaikan pesan pengingat iuran rutin bulanan warga s.d. bulan *${cutoffMonth} 2026*:\n` +
+      `• *Nama Warga:* ${resident.name}\n` +
+      `• *Total Tunggakan:* *${formatRupiah(totalArrears)}*\n` +
+      `• *Bulan Tunggakan:* ${unpaidMonthsStr}\n\n` +
+      `Mohon agar segera melakukan pembayaran transfer ke rekening Bendahara RT:\n` +
+      `• *Bank:* ${profile.bankName || 'Mandiri'}\n` +
+      `• *No. Rekening:* *${profile.bankAccountNo || '1030013542580'}*\n` +
+      `• *Atas Nama:* ${profile.bankAccountHolder || profile.treasurerName || 'Bendahara RT'}\n\n` +
+      `Terima kasih banyak atas kerja sama, partisipasi, dan kepedulian Anda dalam menjaga kenyamanan lingkungan kita bersama. 🙏✨`;
+
+    const cleanPhone = resident.phone ? resident.phone.replace(/\D/g, '') : '';
+    let formatPhone = cleanPhone;
+    if (formatPhone.startsWith('0')) {
+      formatPhone = '62' + formatPhone.slice(1);
+    }
+
+    const waUrl = formatPhone
+      ? `https://api.whatsapp.com/send?phone=${formatPhone}&text=${encodeURIComponent(waMessage)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(waMessage)}`;
+
+    window.open(waUrl, '_blank');
   };
 
   const balance = useMemo(() => {
@@ -1743,273 +1807,302 @@ export const DuesTable: React.FC<DuesTableProps> = ({
       />
 
       {/* MODAL: INFORMASI DETAIL TUNGGAKAN / STATUS LUNAS */}
-      {selectedArrearsResident && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-5 py-4 bg-slate-900 text-white shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl">
-                  <CreditCard className="w-5 h-5" />
+      {selectedArrearsResident && (() => {
+        const totalArrears = calculateArrearsForResident(
+          selectedArrearsResident,
+          selectedArrearsResident.payments,
+          cutoffMonth
+        );
+        const unpaidMonths = getUnpaidMonthsDetails(selectedArrearsResident, cutoffMonth);
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-5 py-4 bg-slate-900 text-white shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl">
+                    <CreditCard className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base leading-tight">
+                      Informasi Detail Tunggakan
+                    </h3>
+                    <p className="text-xs text-slate-300">
+                      Rumah No. {selectedArrearsResident.houseNo} • {selectedArrearsResident.name}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-base leading-tight">
-                    Informasi Detail Tunggakan
-                  </h3>
-                  <p className="text-xs text-slate-300">
-                    Rumah No. {selectedArrearsResident.houseNo} • {selectedArrearsResident.name}
-                  </p>
-                </div>
+                <button
+                  onClick={() => setSelectedArrearsResident(null)}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setSelectedArrearsResident(null)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* Modal Body */}
-            <div className="p-5 overflow-y-auto space-y-4 text-xs">
-              {(() => {
-                const totalArrears = calculateArrearsForResident(
-                  selectedArrearsResident,
-                  selectedArrearsResident.payments,
-                  cutoffMonth
-                );
-                const unpaidMonths = getUnpaidMonthsDetails(selectedArrearsResident, cutoffMonth);
-
-                if (totalArrears > 0) {
-                  return (
-                    <>
-                      {/* Arrears Summary Card */}
-                      <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                            Total Tunggakan (s.d. {cutoffMonth})
+              {/* Modal Body */}
+              <div className="p-5 overflow-y-auto space-y-4 text-xs">
+                {totalArrears > 0 ? (
+                  <>
+                    {/* WRAPPER FOR IMAGE CAPTURE */}
+                    <div id="arrears-card-to-capture" className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3.5 shadow-xs">
+                      {/* Header Slip Tagihan */}
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                        <div>
+                          <span className="text-[10px] font-extrabold text-emerald-700 tracking-wider uppercase block">
+                            Kartu Tagihan Resmi
                           </span>
-                          <span className="px-2 py-0.5 text-[10px] font-extrabold bg-amber-200 text-amber-900 rounded-md">
-                            {unpaidMonths.length} Bulan Belum Lunas
-                          </span>
+                          <h4 className="font-bold text-slate-800 text-xs uppercase leading-tight">
+                            RT {profile.rtNumber} / RW {profile.rwNumber} {profile.name}
+                          </h4>
                         </div>
-                        <div className="text-2xl font-extrabold text-amber-700 font-mono">
-                          {formatRupiah(totalArrears)}
-                        </div>
-                        <p className="text-[11px] text-amber-800 leading-relaxed">
-                          Nominal ini dihitung berdasarkan kewajiban iuran rutin bulanan warga s.d. bulan {cutoffMonth} 2026.
-                        </p>
+                        <span className="px-2 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-800 rounded">
+                          PENGINGAT PEMBAYARAN
+                        </span>
                       </div>
 
-                      {/* Unpaid Months Details */}
-                      <div className="space-y-2">
-                        <label className="font-bold text-slate-800 text-xs block uppercase tracking-wider">
-                          Rincian Bulan Yang Belum Dibayar:
-                        </label>
-                        <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-48 overflow-y-auto">
+                      {/* Data Resident */}
+                      <div className="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 p-2.5 rounded-xl border border-slate-100 font-semibold text-slate-800">
+                        <div>
+                          <div className="text-[9px] text-slate-400 font-bold uppercase">Nama Warga</div>
+                          <div className="text-slate-900">{selectedArrearsResident.name}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] text-slate-400 font-bold uppercase">No. Rumah</div>
+                          <div className="text-slate-900">Rumah No. {selectedArrearsResident.houseNo}</div>
+                        </div>
+                      </div>
+
+                      {/* Summary Card */}
+                      <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl text-center space-y-1">
+                        <span className="text-[9px] font-extrabold text-amber-900 uppercase tracking-wider block">
+                          TOTAL TUNGGAKAN (S.D. {cutoffMonth.toUpperCase()})
+                        </span>
+                        <div className="text-xl font-black text-amber-700 font-mono">
+                          {formatRupiah(totalArrears)}
+                        </div>
+                        <span className="px-2 py-0.5 text-[9px] font-bold bg-amber-200/80 text-amber-900 rounded-md inline-block">
+                          {unpaidMonths.length} Bulan Belum Lunas
+                        </span>
+                      </div>
+
+                      {/* Rincian Bulan */}
+                      <div className="space-y-1">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          Rincian Bulan Belum Dibayar:
+                        </div>
+                        <div className="border border-slate-200 rounded-lg overflow-hidden divide-y divide-slate-100 text-[11px]">
                           {unpaidMonths.map((item) => (
-                            <div key={item.month} className="p-2.5 flex items-center justify-between bg-slate-50/50">
-                              <div>
-                                <span className="font-semibold text-slate-900 text-xs">{item.month}</span>
-                                <span className="text-[10px] text-slate-400 ml-2">
-                                  (Tarif Rp {formatRupiah(item.expected)})
-                                </span>
-                              </div>
-                              <span className="font-mono font-bold text-amber-700 text-xs">
-                                {formatRupiah(item.arrears)}
-                              </span>
+                            <div key={item.month} className="px-2.5 py-1.5 flex items-center justify-between bg-slate-50/30">
+                              <span className="font-semibold text-slate-800">{item.month}</span>
+                              <span className="font-mono font-bold text-amber-700">{formatRupiah(item.arrears)}</span>
                             </div>
                           ))}
                         </div>
                       </div>
 
-                      {/* Community Appeal & Instructions */}
-                      <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs leading-relaxed space-y-1.5">
-                        <div className="font-bold flex items-center gap-1.5 text-blue-950">
-                          <ShieldCheck className="w-4 h-4 text-blue-700 shrink-0" />
-                          <span>Pentingnya Iuran Untuk Lingkungan Kita</span>
-                        </div>
-                        <p>
-                          Mohon untuk dapat <strong>segera melakukan pembayaran iuran warga</strong>, karena kas RT ini digunakan secara penuh untuk kepentingan bersama dalam menjaga <strong>keamanan (siskamling), kebersihan lingkungan, penerangan jalan</strong>, serta operasional warga RT {profile.rtNumber} / RW {profile.rwNumber} Desa {profile.subdistrict}.
-                        </p>
-                      </div>
-
-                      {/* Payment Instructions (Sebagaimana Banner Pembayaran) */}
-                      <div className="p-4 bg-slate-900 text-white rounded-xl space-y-3 shadow-2xs">
+                      {/* Rekening Transfer */}
+                      <div className="p-3 bg-slate-900 text-white rounded-xl space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-xs text-emerald-400 uppercase tracking-wider">
-                            Transfer Pembayaran Iuran RT:
+                          <span className="text-[9px] text-emerald-400 uppercase font-bold tracking-wider">
+                            Penyaluran Transfer Iuran:
                           </span>
-                          <span className="text-[11px] text-slate-300 font-bold bg-slate-800 px-2 py-0.5 rounded">
-                            Bank Mandiri
+                          <span className="text-[9px] text-slate-300 font-bold bg-slate-800 px-2 py-0.5 rounded">
+                            {profile.bankName || 'Mandiri'}
                           </span>
                         </div>
-                        <div className="p-3 bg-slate-800 rounded-lg border border-slate-700 flex items-center justify-between gap-2">
+                        <div className="p-2.5 bg-slate-800 rounded-lg border border-slate-700 flex items-center justify-between gap-2">
                           <div>
-                            <div className="text-[11px] text-slate-400">Nomor Rekening Bendahara:</div>
-                            <div className="font-mono font-extrabold text-base text-emerald-300 tracking-wider">
+                            <div className="text-[10px] text-slate-400">Nomor Rekening Bendahara:</div>
+                            <div className="font-mono font-extrabold text-sm text-emerald-300 tracking-wider">
                               {profile.bankAccountNo || '1030013542580'}
                             </div>
-                            <div className="text-[11px] text-slate-300">
+                            <div className="text-[10px] text-slate-300">
                               a.n {profile.bankAccountHolder || profile.treasurerName || 'Bendahara RT'}
                             </div>
                           </div>
                           <button
                             type="button"
                             onClick={handleCopyBankNo}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition-colors cursor-pointer shrink-0 border border-emerald-500"
                           >
-                            {copiedBankNo ? 'Tersalin!' : 'Salin No. Rek'}
+                            {copiedBankNo ? 'Tersalin!' : 'Salin'}
                           </button>
                         </div>
-                        <p className="text-[11px] text-amber-300 italic">
-                          * {profile.bankTransferNote || 'Sertakan Nama dan Nomor Rumah pada Keterangan pada saat transfer'}
-                        </p>
                       </div>
 
-                      {/* WhatsApp Confirmation Link to Treasurer */}
-                      {(() => {
-                        const treasurerOfficer = profile.officers?.find((o) =>
-                          o.role.toLowerCase().includes('bendahara') && (!o.endPeriod || o.endPeriod >= new Date().toISOString().slice(0, 10))
-                        ) || profile.officers?.find((o) => o.role.toLowerCase().includes('bendahara'));
-
-                        const treasurerName = treasurerOfficer?.name || profile.treasurerName || 'Bendahara RT';
-                        const treasurerPhone = treasurerOfficer?.phone || '081399887766';
-
-                        const formatWaPhone = (phoneStr: string) => {
-                          let cleaned = phoneStr.replace(/\D/g, '');
-                          if (cleaned.startsWith('0')) {
-                            cleaned = '62' + cleaned.slice(1);
-                          }
-                          return cleaned || '6281399887766';
-                        };
-
-                        const waMessage =
-                          `Halo ${treasurerName},\n` +
-                          `Saya *${selectedArrearsResident.name}* (Rumah No. *${selectedArrearsResident.houseNo}*) ingin melakukan konfirmasi pembayaran iuran RT.\n\n` +
-                          `• Total Tunggakan: *${formatRupiah(totalArrears)}* (s.d. ${cutoffMonth})\n` +
-                          `• Rincian Bulan: ${unpaidMonths.map((u) => u.month).join(', ')}\n\n` +
-                          `Mohon verifikasi & catat pembayaran iuran kami. Terima kasih!`;
-
-                        const waUrl = `https://api.whatsapp.com/send?phone=${formatWaPhone(treasurerPhone)}&text=${encodeURIComponent(waMessage)}`;
-
-                        return (
-                          <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl space-y-2.5">
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-xs text-emerald-950 flex items-center gap-1.5">
-                                <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                                <span>Konfirmasi Pembayaran via WhatsApp</span>
-                              </span>
-                              <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
-                                Bendahara RT
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-emerald-900 leading-relaxed">
-                              Setelah melakukan transfer, silakan klik tombol di bawah ini untuk mengirimkan konfirmasi & bukti pembayaran langsung kepada Bendahara Pengurus RT (<strong>{treasurerName}</strong>).
-                            </p>
-                            <a
-                              href={waUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer border border-emerald-500 hover:shadow-md"
-                            >
-                              <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
-                                <path d="M12.031 0C5.385 0 0 5.385 0 12.031c0 2.124.553 4.197 1.605 6.02L0 24l6.182-1.576a11.976 11.976 0 005.849 1.511h.005c6.645 0 12.03-5.385 12.03-12.031A11.97 11.97 0 0012.031 0zM12.03 21.942h-.004a9.932 9.932 0 01-5.063-1.385l-.363-.215-3.761.958.973-3.664-.236-.375a9.923 9.923 0 01-1.528-5.228C2.048 6.516 6.52 2.044 12.031 2.044c2.67 0 5.179 1.04 7.067 2.928 1.888 1.888 2.927 4.398 2.927 7.068-.001 5.512-4.474 9.902-9.995 9.902zm5.48-7.481c-.301-.15-1.782-.88-2.058-.98-.276-.1-.477-.15-.678.15-.201.3-.777.98-.953 1.18-.175.2-.351.226-.652.075-.301-.15-1.272-.469-2.423-1.5-1.152-1.028-1.928-2.298-2.154-2.686-.226-.388-.024-.598.126-.748.135-.135.301-.351.452-.527.15-.175.201-.301.301-.502.1-.201.05-.376-.025-.527-.075-.15-.678-1.631-.928-2.234-.244-.588-.493-.509-.678-.518-.175-.01-.376-.01-.577-.01s-.527.075-.803.376c-.276.301-1.054 1.03-1.054 2.51 0 1.48 1.08 2.91 1.23 3.11.15.2 2.124 3.243 5.145 4.548.718.311 1.279.497 1.716.638.721.229 1.377.197 1.896.115.578-.092 1.782-.728 2.033-1.431.251-.703.251-1.305.176-1.43-.075-.126-.276-.201-.577-.352z"/>
-                              </svg>
-                              <span>Konfirmasi WA ke Bendahara ({treasurerName})</span>
-                            </a>
-                          </div>
-                        );
-                      })()}
-                    </>
-                  );
-                } else {
-                  return (
-                    /* Lunas Success Celebration */
-                    <div className="py-6 text-center space-y-4">
-                      <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-xs border border-emerald-200">
-                        <CheckCircle2 className="w-10 h-10" />
+                      <div className="text-[9px] text-slate-400 italic text-center">
+                        * Harap lampirkan bukti transfer saat melakukan konfirmasi.
                       </div>
-                      <div className="space-y-1.5 max-w-sm mx-auto">
-                        <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold uppercase tracking-wider">
-                          Status: LUNAS
-                        </span>
-                        <h4 className="text-base sm:text-lg font-extrabold text-slate-900 pt-1">
-                          Terima Kasih Telah Tertib Membayar!
-                        </h4>
-                        <p className="text-xs text-slate-600 leading-relaxed">
-                          Terima kasih banyak kepada Bpk/Ibu <strong>{selectedArrearsResident.name}</strong> (Rumah No. {selectedArrearsResident.houseNo}) yang telah <strong>tertib dan selalu disiplin membayar iuran warga</strong> s.d. bulan {cutoffMonth} 2026.
-                        </p>
-                      </div>
-                      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs leading-relaxed text-left max-w-md mx-auto space-y-2">
-                        <p className="font-bold flex items-center gap-1.5 text-emerald-950">
-                          <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                          <span>Kontribusi Anda Sangat Berharga!</span>
-                        </p>
-                        <p className="text-[11px] text-emerald-800">
-                          Kedisiplinan pembayaran iuran Anda sangat mendukung kelancaran operasional, kebersihan, penerangan, serta keamanan lingkungan tempat tinggal kita bersama di RT {profile.rtNumber} / RW {profile.rwNumber} Desa {profile.subdistrict}.
-                        </p>
-                      </div>
-
-                      {/* WhatsApp Contact for Lunas Residents */}
-                      {(() => {
-                        const treasurerOfficer = profile.officers?.find((o) =>
-                          o.role.toLowerCase().includes('bendahara') && (!o.endPeriod || o.endPeriod >= new Date().toISOString().slice(0, 10))
-                        ) || profile.officers?.find((o) => o.role.toLowerCase().includes('bendahara'));
-
-                        const treasurerName = treasurerOfficer?.name || profile.treasurerName || 'Bendahara RT';
-                        const treasurerPhone = treasurerOfficer?.phone || '081399887766';
-
-                        const formatWaPhone = (phoneStr: string) => {
-                          let cleaned = phoneStr.replace(/\D/g, '');
-                          if (cleaned.startsWith('0')) {
-                            cleaned = '62' + cleaned.slice(1);
-                          }
-                          return cleaned || '6281399887766';
-                        };
-
-                        const waMessage =
-                          `Halo ${treasurerName},\n` +
-                          `Saya *${selectedArrearsResident.name}* (Rumah No. *${selectedArrearsResident.houseNo}*).\n` +
-                          `Status iuran warga kami terpantau LUNAS. Terima kasih!`;
-
-                        const waUrl = `https://api.whatsapp.com/send?phone=${formatWaPhone(treasurerPhone)}&text=${encodeURIComponent(waMessage)}`;
-
-                        return (
-                          <div className="pt-2 max-w-md mx-auto">
-                            <a
-                              href={waUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-semibold text-xs rounded-xl transition-colors cursor-pointer border border-emerald-300"
-                            >
-                              <MessageCircle className="w-4 h-4 text-emerald-700" />
-                              <span>Hubungi Bendahara RT ({treasurerName})</span>
-                            </a>
-                          </div>
-                        );
-                      })()}
                     </div>
-                  );
-                }
-              })()}
-            </div>
 
-            {/* Modal Footer */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
-              <span className="text-[11px] text-slate-500 font-medium">
-                RT {profile.rtNumber} / RW {profile.rwNumber} Desa {profile.subdistrict}
-              </span>
-              <button
-                onClick={() => setSelectedArrearsResident(null)}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer shadow-xs"
-              >
-                Tutup Informasi
-              </button>
+                    {/* Community Appeal & Instructions */}
+                    <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs leading-relaxed space-y-1.5">
+                      <div className="font-bold flex items-center gap-1.5 text-blue-950">
+                        <ShieldCheck className="w-4 h-4 text-blue-700 shrink-0" />
+                        <span>Pentingnya Iuran Untuk Lingkungan Kita</span>
+                      </div>
+                      <p>
+                        Mohon untuk dapat <strong>segera melakukan pembayaran iuran warga</strong>, karena kas RT ini digunakan secara penuh untuk kepentingan bersama dalam menjaga <strong>keamanan (siskamling), kebersihan lingkungan, penerangan jalan</strong>, serta operasional warga RT {profile.rtNumber} / RW {profile.rwNumber} Desa {profile.subdistrict}.
+                      </p>
+                    </div>
+
+                    {/* WhatsApp Confirmation Link to Treasurer */}
+                    {(() => {
+                      const treasurerOfficer = profile.officers?.find((o) =>
+                        o.role.toLowerCase().includes('bendahara') && (!o.endPeriod || o.endPeriod >= new Date().toISOString().slice(0, 10))
+                      ) || profile.officers?.find((o) => o.role.toLowerCase().includes('bendahara'));
+
+                      const treasurerName = treasurerOfficer?.name || profile.treasurerName || 'Bendahara RT';
+                      const treasurerPhone = treasurerOfficer?.phone || '081399887766';
+
+                      const formatWaPhone = (phoneStr: string) => {
+                        let cleaned = phoneStr.replace(/\D/g, '');
+                        if (cleaned.startsWith('0')) {
+                          cleaned = '62' + cleaned.slice(1);
+                        }
+                        return cleaned || '6281399887766';
+                      };
+
+                      const waMessage =
+                        `Halo ${treasurerName},\n` +
+                        `Saya *${selectedArrearsResident.name}* (Rumah No. *${selectedArrearsResident.houseNo}*) ingin melakukan konfirmasi pembayaran iuran RT.\n\n` +
+                        `• Total Tunggakan: *${formatRupiah(totalArrears)}* (s.d. ${cutoffMonth})\n` +
+                        `• Rincian Bulan: ${unpaidMonths.map((u) => u.month).join(', ')}\n\n` +
+                        `Mohon verifikasi & catat pembayaran iuran kami. Terima kasih!`;
+
+                      const waUrl = `https://api.whatsapp.com/send?phone=${formatWaPhone(treasurerPhone)}&text=${encodeURIComponent(waMessage)}`;
+
+                      return (
+                        <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-xs text-emerald-950 flex items-center gap-1.5">
+                              <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>Konfirmasi Pembayaran via WhatsApp</span>
+                            </span>
+                            <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
+                              Bendahara RT
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-emerald-900 leading-relaxed">
+                            Setelah melakukan transfer, silakan klik tombol di bawah ini untuk mengirimkan konfirmasi & bukti pembayaran langsung kepada Bendahara Pengurus RT (<strong>{treasurerName}</strong>).
+                          </p>
+                          <a
+                            href={waUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer border border-emerald-500 hover:shadow-md"
+                          >
+                            <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                              <path d="M12.031 0C5.385 0 0 5.385 0 12.031c0 2.124.553 4.197 1.605 6.02L0 24l6.182-1.576a11.976 11.976 0 005.849 1.511h.005c6.645 0 12.03-5.385 12.03-12.031A11.97 11.97 0 0012.031 0zM12.03 21.942h-.004a9.932 9.932 0 01-5.063-1.385l-.363-.215-3.761.958.973-3.664-.236-.375a9.923 9.923 0 01-1.528-5.228C2.048 6.516 6.52 2.044 12.031 2.044c2.67 0 5.179 1.04 7.067 2.928 1.888 1.888 2.927 4.398 2.927 7.068-.001 5.512-4.474 9.902-9.995 9.902zm5.48-7.481c-.301-.15-1.782-.88-2.058-.98-.276-.1-.477-.15-.678.15-.201.3-.777.98-.953 1.18-.175.2-.351.226-.652.075-.301-.15-1.272-.469-2.423-1.5-1.152-1.028-1.928-2.298-2.154-2.686-.226-.388-.024-.598.126-.748.135-.135.301-.351.452-.527.15-.175.201-.301.301-.502.1-.201.05-.376-.025-.527-.075-.15-.678-1.631-.928-2.234-.244-.588-.493-.509-.678-.518-.175-.01-.376-.01-.577-.01s-.527.075-.803.376c-.276.301-1.054 1.03-1.054 2.51 0 1.48 1.08 2.91 1.23 3.11.15.2 2.124 3.243 5.145 4.548.718.311 1.279.497 1.716.638.721.229 1.377.197 1.896.115.578-.092 1.782-.728 2.033-1.431.251-.703.251-1.305.176-1.43-.075-.126-.276-.201-.577-.352z"/>
+                            </svg>
+                            <span>Konfirmasi WA ke Bendahara ({treasurerName})</span>
+                          </a>
+                        </div>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  /* Lunas Success Celebration */
+                  <div className="py-6 text-center space-y-4">
+                    <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-xs border border-emerald-200">
+                      <CheckCircle2 className="w-10 h-10" />
+                    </div>
+                    <div className="space-y-1.5 max-w-sm mx-auto">
+                      <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold uppercase tracking-wider">
+                        Status: LUNAS
+                      </span>
+                      <h4 className="text-base sm:text-lg font-extrabold text-slate-900 pt-1">
+                        Terima Kasih Telah Tertib Membayar!
+                      </h4>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Terima kasih banyak kepada Bpk/Ibu <strong>{selectedArrearsResident.name}</strong> (Rumah No. {selectedArrearsResident.houseNo}) yang telah <strong>tertib dan selalu disiplin membayar iuran warga</strong> s.d. bulan {cutoffMonth} 2026.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs leading-relaxed text-left max-w-md mx-auto space-y-2">
+                      <p className="font-bold flex items-center gap-1.5 text-emerald-950">
+                        <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                        <span>Kontribusi Anda Sangat Berharga!</span>
+                      </p>
+                      <p className="text-[11px] text-emerald-800">
+                        Kedisiplinan pembayaran iuran Anda sangat mendukung kelancaran operasional, kebersihan, penerangan, serta keamanan lingkungan tempat tinggal kita bersama di RT {profile.rtNumber} / RW {profile.rwNumber} Desa {profile.subdistrict}.
+                      </p>
+                    </div>
+
+                    {/* WhatsApp Contact for Lunas Residents */}
+                    {(() => {
+                      const treasurerOfficer = profile.officers?.find((o) =>
+                        o.role.toLowerCase().includes('bendahara') && (!o.endPeriod || o.endPeriod >= new Date().toISOString().slice(0, 10))
+                      ) || profile.officers?.find((o) => o.role.toLowerCase().includes('bendahara'));
+
+                      const treasurerName = treasurerOfficer?.name || profile.treasurerName || 'Bendahara RT';
+                      const treasurerPhone = treasurerOfficer?.phone || '081399887766';
+
+                      const formatWaPhone = (phoneStr: string) => {
+                        let cleaned = phoneStr.replace(/\D/g, '');
+                        if (cleaned.startsWith('0')) {
+                          cleaned = '62' + cleaned.slice(1);
+                        }
+                        return cleaned || '6281399887766';
+                      };
+
+                      const waMessage =
+                        `Halo ${treasurerName},\n` +
+                        `Saya *${selectedArrearsResident.name}* (Rumah No. *${selectedArrearsResident.houseNo}*).\n` +
+                        `Status iuran warga kami terpantau LUNAS. Terima kasih!`;
+
+                      const waUrl = `https://api.whatsapp.com/send?phone=${formatWaPhone(treasurerPhone)}&text=${encodeURIComponent(waMessage)}`;
+
+                      return (
+                        <div className="pt-2 max-w-md mx-auto">
+                          <a
+                            href={waUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-semibold text-xs rounded-xl transition-colors cursor-pointer border border-emerald-300"
+                          >
+                            <MessageCircle className="w-4 h-4 text-emerald-700" />
+                            <span>Hubungi Bendahara RT ({treasurerName})</span>
+                          </a>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
+                <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
+                  RT {profile.rtNumber} / RW {profile.rwNumber} Desa {profile.subdistrict}
+                </span>
+                <div className="flex items-center justify-end gap-2 w-full sm:w-auto">
+                  {totalArrears > 0 && (
+                    <button
+                      type="button"
+                      disabled={isSharing}
+                      onClick={() => handleShareWhatsApp(selectedArrearsResident, totalArrears, unpaidMonths)}
+                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer border border-emerald-500"
+                    >
+                      <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                        <path d="M12.031 0C5.385 0 0 5.385 0 12.031c0 2.124.553 4.197 1.605 6.02L0 24l6.182-1.576a11.976 11.976 0 005.849 1.511h.005c6.645 0 12.03-5.385 12.03-12.031A11.97 11.97 0 0012.031 0zM12.03 21.942h-.004a9.932 9.932 0 01-5.063-1.385l-.363-.215-3.761.958.973-3.664-.236-.375a9.923 9.923 0 01-1.528-5.228C2.048 6.516 6.52 2.044 12.031 2.044c2.67 0 5.179 1.04 7.067 2.928 1.888 1.888 2.927 4.398 2.927 7.068-.001 5.512-4.474 9.902-9.995 9.902zm5.48-7.481c-.301-.15-1.782-.88-2.058-.98-.276-.1-.477-.15-.678.15-.201.3-.777.98-.953 1.18-.175.2-.351.226-.652.075-.301-.15-1.272-.469-2.423-1.5-1.152-1.028-1.928-2.298-2.154-2.686-.226-.388-.024-.598.126-.748.135-.135.301-.351.452-.527.15-.175.201-.301.301-.502.1-.201.05-.376-.025-.527-.075-.15-.678-1.631-.928-2.234-.244-.588-.493-.509-.678-.518-.175-.01-.376-.01-.577-.01s-.527.075-.803.376c-.276.301-1.054 1.03-1.054 2.51 0 1.48 1.08 2.91 1.23 3.11.15.2 2.124 3.243 5.145 4.548.718.311 1.279.497 1.716.638.721.229 1.377.197 1.896.115.578-.092 1.782-.728 2.033-1.431.251-.703.251-1.305.176-1.43-.075-.126-.276-.201-.577-.352z"/>
+                      </svg>
+                      <span>{isSharing ? 'Memproses...' : 'Kirim Pengingat WA'}</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSelectedArrearsResident(null)}
+                    className="flex-1 sm:flex-initial px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer shadow-xs"
+                  >
+                    Tutup Informasi
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

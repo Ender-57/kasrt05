@@ -983,7 +983,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
               ) : (
                 filteredTransactions.map((tx) => {
                   const [y, m, d] = tx.date.split('-');
-                  const displayDate = `${d}/${m}/${y}`;
+                  const displayDate = `${d}-${m}-${y}`;
 
                   return (
                     <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors">

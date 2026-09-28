@@ -342,7 +342,7 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
                 <div className="bg-slate-50/80 px-5 py-4 border-t border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Dibuat {prog.date}</span>
+                    <span>Dibuat {formatDateIndo(prog.date)}</span>
                   </div>
                   <button
                     type="button"
@@ -568,7 +568,7 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
                                   <span>Lunas ({pay.paymentMethod || 'Tunai'})</span>
                                 </span>
                                 <span className="text-emerald-600">•</span>
-                                <span>Bayar: {pay.paidAt}</span>
+                                <span>Bayar: {formatDateIndo(pay.paidAt || '')}</span>
                                 {pay.receiptNo && (
                                   <>
                                     <span className="text-emerald-600">•</span>

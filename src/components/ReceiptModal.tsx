@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { X, Printer, Share2, CheckCircle2, Building, ShieldCheck, Download, Loader2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { Resident, MonthKey, RTProfile } from '../types';
@@ -29,6 +29,23 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 }) => {
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [logoBase64, setLogoBase64] = useState<string>('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch('/logo-rt05.png')
+      .then(res => res.blob())
+      .then(blob => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setLogoBase64(reader.result as string);
+        };
+        reader.readAsDataURL(blob);
+      })
+      .catch(err => {
+        console.error('Error loading logo as base64:', err);
+      });
+  }, [isOpen]);
 
   if (!isOpen || !resident) return null;
 
@@ -49,6 +66,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         backgroundColor: '#ffffff',
         skipFonts: true,
         cacheBust: true,
+        style: {
+          width: '650px',
+          margin: '0',
+          transform: 'none',
+        },
+        width: 650,
       });
       const link = document.createElement('a');
       const cleanFileName = `Kuitansi_${resident.name.replace(/\s+/g, '_')}_${receiptNumber}.png`;
@@ -96,6 +119,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         backgroundColor: '#ffffff',
         skipFonts: true,
         cacheBust: true,
+        style: {
+          width: '650px',
+          margin: '0',
+          transform: 'none',
+        },
+        width: 650,
       });
       
       const resBlob = await fetch(dataUrl);
@@ -187,7 +216,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             <div className="border-b-2 border-slate-800 pb-4 mb-5 text-center">
               <div className="flex items-center justify-center gap-3.5 mb-1.5">
                 <img
-                  src="/logo-rt05.png"
+                  src={logoBase64 || "/logo-rt05.png"}
+                  crossOrigin="anonymous"
                   alt="Logo RT 05"
                   className="w-14 h-14 object-contain rounded-full border border-slate-300 shadow-2xs shrink-0"
                 />

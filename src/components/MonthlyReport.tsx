@@ -438,8 +438,7 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
       Array.from(dateMap.values()).forEach((item) => {
         const [y, m, d] = item.date.split('-');
         const shortLabel = `${d}/${m}`;
-        const monthName = MONTHS[parseInt(m, 10) - 1] || m;
-        const fullTitle = `${parseInt(d, 10)} ${monthName} ${y}`;
+        const fullTitle = `${d}-${m}-${y}`;
 
         const lastTxOnDate = [...chronologicalWithBalance]
           .filter((t) => t.date <= item.date)

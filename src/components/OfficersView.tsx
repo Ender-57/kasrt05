@@ -394,7 +394,7 @@ export const OfficersView: React.FC<OfficersViewProps> = ({
             <div className="flex flex-wrap items-center gap-4 text-xs text-emerald-200/90 pt-1">
               <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-lg backdrop-blur-xs">
                 <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Masa Bakti: 2024 - 2026</span>
+                <span>Masa Bakti: 2026 - 2031</span>
               </span>
               <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-lg backdrop-blur-xs">
                 <MapPin className="w-3.5 h-3.5 text-emerald-400" />

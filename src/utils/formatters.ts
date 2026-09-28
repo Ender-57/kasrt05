@@ -22,12 +22,22 @@ export const formatPercent = (val: number, decimals: number = 2): string => {
 export const formatDateIndo = (dateStr: string): string => {
   if (!dateStr) return '-';
   try {
+    // Menghindari masalah timezone offset dengan melakukan split jika formatnya YYYY-MM-DD
+    const parts = dateStr.slice(0, 10).split('-');
+    if (parts.length === 3) {
+      const [y, m, d] = parts;
+      if (y.length === 4 && m.length === 2 && d.length === 2) {
+        return `${d}-${m}-${y}`;
+      }
+    }
+    
+    // Fallback jika berupa ISO string penuh atau objek Date
     const date = new Date(dateStr);
-    return date.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
+    if (isNaN(date.getTime())) return dateStr;
+    const d = String(date.getDate()).padStart(2, '0');
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const y = date.getFullYear();
+    return `${d}-${m}-${y}`;
   } catch {
     return dateStr;
   }

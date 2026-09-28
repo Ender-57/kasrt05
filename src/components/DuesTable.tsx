@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   X,
   MessageCircle,
+  Printer,
 } from 'lucide-react';
 import { Resident, MonthKey, MONTHS, RTProfile, CashTransaction, IncidentalDuesProgram } from '../types';
 import { formatRupiah, formatAttachmentFileName } from '../utils/formatters';
@@ -315,6 +316,211 @@ export const DuesTable: React.FC<DuesTableProps> = ({
     });
   }, [residents, searchTerm, filterTab, cutoffMonth]);
 
+  const handlePrintTable = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Gagal membuka jendela cetak. Pastikan browser Anda tidak memblokir pop-up.');
+      return;
+    }
+
+    const itemsToPrint = filteredResidents;
+    const monthHeaders = MONTHS.map(m => `<th style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: center;">${m.slice(0, 3)}</th>`).join('');
+
+    const rows = itemsToPrint.map((r) => {
+      const isVacant = r.isVacant;
+      const dynamicArrears = isVacant ? 0 : calculateArrearsForResident(r, r.payments, cutoffMonth);
+      const tunggakanText = isVacant ? '-' : formatRupiah(dynamicArrears);
+      
+      const monthlyCells = MONTHS.map(m => {
+        const p = r.payments[m];
+        if (p?.paid) {
+          return `<td style="border: 1px solid #94a3b8; padding: 4px 6px; font-size: 9px; text-align: center; color: #059669; font-weight: bold;">Lunas<br/><span style="font-size: 8px; font-weight: normal; color: #475569;">${formatRupiah(p.amount)}</span></td>`;
+        } else {
+          return `<td style="border: 1px solid #94a3b8; padding: 4px 6px; font-size: 11px; text-align: center; color: #dc2626; font-weight: bold;">-</td>`;
+        }
+      }).join('');
+
+      return `
+        <tr>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: center; font-weight: bold;">${r.houseNo}</td>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; font-weight: 500;">${isVacant ? '<em>KOSONG (Rumah Kosong)</em>' : r.name}</td>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: right; font-weight: bold; color: ${dynamicArrears > 0 ? '#b45309' : '#1e293b'}">${tunggakanText}</td>
+          ${monthlyCells}
+        </tr>
+      `;
+    }).join('');
+
+    const titleText = filterTab === 'LUNAS' ? 'LAPORAN REKAPITULASI WARGA - STATUS LUNAS' :
+                    filterTab === 'NUNGGAK' ? 'LAPORAN REKAPITULASI WARGA - STATUS MENUNGGAK' :
+                    filterTab === 'KOSONG' ? 'LAPORAN REKAPITULASI - DAFTAR RUMAH KOSONG' :
+                    'LAPORAN REKAPITULASI BULANAN IURAN RUTIN WARGA';
+
+    const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' });
+    const treasurerOfficer = profile.officers?.find((o) => o.role.toLowerCase().includes('bendahara'));
+    const treasurerName = treasurerOfficer?.name || profile.treasurerName || 'Bendahara RT';
+
+    const chairpersonOfficer = profile.officers?.find((o) => o.role.toLowerCase().includes('ketua'));
+    const chairpersonName = chairpersonOfficer?.name || profile.chairpersonName || 'Ketua RT';
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${titleText} - RT ${profile.rtNumber}</title>
+          <style>
+            @media print {
+              @page {
+                size: A4 landscape;
+                margin: 10mm 15mm;
+              }
+              body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+            body {
+              font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+              color: #1e293b;
+              margin: 0;
+              padding: 0;
+              font-size: 11px;
+              background-color: #ffffff;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 15px;
+              border-bottom: 3px double #1e293b;
+              padding-bottom: 10px;
+            }
+            .header h1 {
+              margin: 0 0 2px 0;
+              font-size: 18px;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              color: #0f172a;
+            }
+            .header p {
+              margin: 0;
+              font-size: 11px;
+              color: #475569;
+              font-weight: 500;
+            }
+            .report-meta {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 12px;
+              font-size: 10px;
+              font-weight: 600;
+              color: #334155;
+              background-color: #f8fafc;
+              padding: 6px 10px;
+              border-radius: 6px;
+              border: 1px solid #e2e8f0;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            th {
+              background-color: #f1f5f9;
+              color: #0f172a;
+              font-weight: bold;
+              text-align: center;
+              text-transform: uppercase;
+            }
+            tr:nth-child(even) {
+              background-color: #f8fafc;
+            }
+            .footer-notes {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 30px;
+              page-break-inside: avoid;
+            }
+            .signature-block {
+              text-align: center;
+              width: 220px;
+            }
+            .signature-space {
+              height: 45px;
+            }
+            .signature-name {
+              font-weight: 700;
+              border-bottom: 1.5px solid #1e293b;
+              display: inline-block;
+              padding: 0 15px;
+              margin: 0;
+              color: #0f172a;
+            }
+            .system-note {
+              text-align: center;
+              font-size: 8px;
+              color: #94a3b8;
+              margin-top: 25px;
+              border-top: 1px dashed #cbd5e1;
+              padding-top: 8px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>RT ${profile.rtNumber} / RW ${profile.rwNumber} ${profile.name.toUpperCase()}</h1>
+            <p>Desa ${profile.subdistrict}, Kec. ${profile.district}, ${profile.city}, Jawa Barat</p>
+            <h2 style="margin: 8px 0 0 0; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: #0f172a; text-transform: uppercase;">${titleText} (TAHUN 2026)</h2>
+          </div>
+          
+          <div class="report-meta">
+            <div>Kategori Filter: <span style="color: #0284c7; font-weight: bold;">${filterTab === 'ALL' ? 'Semua Rumah' : filterTab === 'LUNAS' ? 'Lunas' : filterTab === 'NUNGGAK' ? 'Menunggak' : 'Rumah Kosong'}</span></div>
+            <div>Tunggakan s.d. Bulan: <span style="color: #b45309; font-weight: bold;">${cutoffMonth} 2026</span></div>
+            <div>Tanggal Cetak: <span>${timestamp}</span></div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; width: 55px; text-align: center;">NO. RMH</th>
+                <th style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: left;">NAMA WARGA</th>
+                <th style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: right; width: 110px;">TUNGGAKAN</th>
+                ${monthHeaders}
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+
+          <div class="footer-notes">
+            <div class="signature-block">
+              <p style="margin: 0 0 8px 0; font-size: 10px; color: #475569;">Mengetahui,</p>
+              <p style="margin: 0 0 10px 0; font-size: 10px; color: #475569; font-weight: 600;">Ketua RT ${profile.rtNumber},</p>
+              <div class="signature-space"></div>
+              <p class="signature-name">${chairpersonName}</p>
+            </div>
+            
+            <div class="signature-block">
+              <p style="margin: 0 0 2px 0; font-size: 10px; color: #475569;">${profile.city}, ${new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</p>
+              <p style="margin: 0 0 10px 0; font-size: 10px; color: #475569; font-weight: 600;">Bendahara Pengurus RT,</p>
+              <div class="signature-space"></div>
+              <p class="signature-name">${treasurerName}</p>
+            </div>
+          </div>
+
+          <div class="system-note">
+            Laporan resmi kas lingkungan RT. Dicatat secara transparan, otomatis, dan akuntabel di Aplikasi Buku Kas RT.
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   // Aggregate stats
   const stats = useMemo(() => {
     let totalCollected = 0;
@@ -399,8 +605,33 @@ export const DuesTable: React.FC<DuesTableProps> = ({
     let attachmentName = undefined;
     let attachmentUrl = undefined;
 
-    const receiptNo = `KW-${new Date().getFullYear().toString().slice(-2)}${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${selectedResident.houseNo.padStart(3, '0')}`;
     const today = new Date().toISOString().split('T')[0];
+    
+    // Generate receipt number based on input date (DDMM) and houseNo
+    const todayObj = new Date();
+    const dd = todayObj.getDate().toString().padStart(2, '0');
+    const mm = (todayObj.getMonth() + 1).toString().padStart(2, '0');
+    const baseReceiptNo = `KW-${dd}${mm}-${selectedResident.houseNo}`;
+
+    // Scan for existing payments in the system to assign a sequence suffix if paid on the same day
+    const existingReceiptNumbers = new Set<string>();
+    residents.forEach((r) => {
+      if (r.payments) {
+        Object.values(r.payments).forEach((p) => {
+          if (p && p.receiptNo) {
+            existingReceiptNumbers.add(p.receiptNo);
+          }
+        });
+      }
+    });
+
+    let receiptNo = baseReceiptNo;
+    let counter = 1;
+    while (existingReceiptNumbers.has(receiptNo)) {
+      counter++;
+      receiptNo = `${baseReceiptNo}-${counter}`;
+    }
+
     const duesDescription = `Iuran warga No. ${selectedResident.houseNo} (${selectedResident.name}) - Bulan ${selectedMonths.join(', ')} 2026`;
 
     if (formFile) {
@@ -916,16 +1147,27 @@ export const DuesTable: React.FC<DuesTableProps> = ({
           </button>
         </div>
 
-        {/* Search input */}
-        <div className="relative w-full md:w-72">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Cari no. rumah / nama warga..."
-            className="w-full pl-9 pr-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-          />
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+        {/* Search & Print actions */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+          <div className="relative w-full md:w-64">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Cari no. rumah / nama warga..."
+              className="w-full pl-9 pr-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+            />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+          </div>
+          <button
+            type="button"
+            onClick={handlePrintTable}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-semibold text-xs rounded-xl transition-colors shadow-2xs border border-rose-700 cursor-pointer whitespace-nowrap"
+            title="Cetak tabel rekap iuran ke PDF/Kertas"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Cetak PDF</span>
+          </button>
         </div>
       </div>
 
@@ -940,22 +1182,22 @@ export const DuesTable: React.FC<DuesTableProps> = ({
         <div className="overflow-x-auto max-h-[650px] overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse min-w-[1200px]">
             <thead>
-              <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 select-none">
-                <th className="py-3 px-3 w-16 text-center border-r border-slate-200 sticky top-0 left-0 z-20 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]">NO. RMH</th>
-                <th className="py-3 px-3.5 min-w-[150px] border-r border-slate-200 sticky top-0 left-16 z-20 bg-slate-100 shadow-[1px_0_0_0_#cbd5e1]">NAMA WARGA</th>
-                <th className="py-2.5 px-3 min-w-[160px] border-r border-slate-200 sticky top-0 z-10 bg-slate-100">
+              <tr className="bg-emerald-600 text-white font-bold border-b border-emerald-500 select-none text-[11px]">
+                <th className="py-3 px-3 w-16 text-center border-r border-emerald-500 sticky top-0 left-0 z-20 bg-emerald-600 shadow-[1px_0_0_0_#10b981]">NO. RMH</th>
+                <th className="py-3 px-3.5 min-w-[150px] border-r border-emerald-500 sticky top-0 left-16 z-20 bg-emerald-600 shadow-[1px_0_0_0_#10b981]">NAMA WARGA</th>
+                <th className="py-2.5 px-3 min-w-[160px] border-r border-emerald-500 sticky top-0 z-10 bg-emerald-600">
                   <div className="flex items-center justify-between gap-1.5">
-                    <span className="font-bold text-slate-800 uppercase tracking-tight">
+                    <span className="font-bold text-white uppercase tracking-tight">
                       TUNGGAKAN Sd. {getMonthAbbr(cutoffMonth)}
                     </span>
                     <select
                       value={cutoffMonth}
                       onChange={(e) => setCutoffMonth(e.target.value as MonthKey)}
                       title="Pilih batas bulan perhitungan tunggakan"
-                      className="text-[10px] font-normal py-0.5 px-1.5 bg-white border border-slate-300 rounded text-slate-700 hover:border-emerald-500 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                      className="text-[10px] font-normal py-0.5 px-1.5 bg-emerald-700 border border-emerald-500 rounded text-white hover:bg-emerald-800 focus:outline-hidden cursor-pointer"
                     >
                       {MONTHS.map((m) => (
-                        <option key={m} value={m}>
+                        <option key={m} value={m} className="bg-emerald-800 text-white">
                           Sd. {getMonthAbbr(m)}
                         </option>
                       ))}
@@ -965,18 +1207,18 @@ export const DuesTable: React.FC<DuesTableProps> = ({
                 {MONTHS.map((m) => (
                   <th
                     key={m}
-                    className="py-3 px-2 text-center min-w-[80px] border-r border-slate-200 last:border-r-0 sticky top-0 z-10 bg-slate-100"
+                    className="py-3 px-2 text-center min-w-[80px] border-r border-emerald-500 last:border-r-0 sticky top-0 z-10 bg-emerald-600"
                   >
-                    <span className="block">{m.slice(0, 3)}</span>
-                    <span className="block text-[9px] font-normal text-slate-400">
+                    <span className="block text-white">{m.slice(0, 3)}</span>
+                    <span className="block text-[9px] font-normal text-emerald-200">
                       {['Januari', 'Februari', 'Maret', 'April', 'Mei'].includes(m) ? '60k' : '70k'}
                     </span>
                   </th>
                 ))}
-                <th className="py-3 px-3.5 text-right min-w-[110px] border-l border-slate-200 sticky top-0 z-10 bg-slate-100">
+                <th className="py-3 px-3.5 text-right min-w-[110px] border-l border-emerald-500 sticky top-0 z-10 bg-emerald-600 text-white">
                   TOTAL BAYAR
                 </th>
-                {isAdmin && <th className="py-3 px-3 text-center w-24 sticky top-0 z-10 bg-slate-100">AKSI</th>}
+                {isAdmin && <th className="py-3 px-3 text-center w-24 sticky top-0 z-10 bg-emerald-600 text-white">AKSI</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-normal">

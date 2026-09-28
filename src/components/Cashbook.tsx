@@ -19,6 +19,8 @@ import {
   AlertTriangle,
   Copy,
   Check,
+  Printer,
+  Clock,
 } from 'lucide-react';
 import {
   CashTransaction,
@@ -28,10 +30,36 @@ import {
   DebtItem,
   DebtType,
   DebtStatus,
+  MONTHS,
+  MonthKey,
 } from '../types';
 import { formatRupiah, formatDateIndo, formatAttachmentFileName } from '../utils/formatters';
 import { uploadFileToGoogleDrive } from '../services/googleDrive';
 import { getAccessToken, googleSignIn } from '../services/auth';
+
+type PeriodType = 'SEMUA' | 'TAHUNAN' | 'TRIWULAN' | 'BULANAN' | 'RENTANG_TANGGAL';
+
+const MONTH_INDEX_MAP: Record<MonthKey, number> = {
+  Januari: 1,
+  Februari: 2,
+  Maret: 3,
+  April: 4,
+  Mei: 5,
+  Juni: 6,
+  Juli: 7,
+  Agustus: 8,
+  September: 9,
+  Oktober: 10,
+  November: 11,
+  Desember: 12,
+};
+
+const QUARTERS = [
+  { id: 'Q1', label: 'Triwulan I (Jan - Mar)', shortLabel: 'TW I (Jan-Mar)', months: ['Januari', 'Februari', 'Maret'] as MonthKey[], startMonth: '01', endMonth: '03' },
+  { id: 'Q2', label: 'Triwulan II (Apr - Jun)', shortLabel: 'TW II (Apr-Jun)', months: ['April', 'Mei', 'Juni'] as MonthKey[], startMonth: '04', endMonth: '06' },
+  { id: 'Q3', label: 'Triwulan III (Jul - Sep)', shortLabel: 'TW III (Jul-Sep)', months: ['Juli', 'Agustus', 'September'] as MonthKey[], startMonth: '07', endMonth: '09' },
+  { id: 'Q4', label: 'Triwulan IV (Okt - Des)', shortLabel: 'TW IV (Okt-Des)', months: ['Oktober', 'November', 'Desember'] as MonthKey[], startMonth: '10', endMonth: '12' },
+];
 
 const readFileAsDataUrl = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -86,6 +114,14 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | TransactionCategory>('ALL');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [copiedBankNo, setCopiedBankNo] = useState(false);
+
+  // Period filter states
+  const [periodType, setPeriodType] = useState<PeriodType>('BULANAN');
+  const [selectedYear, setSelectedYear] = useState<string>('2026');
+  const [selectedMonth, setSelectedMonth] = useState<MonthKey>('September');
+  const [selectedQuarter, setSelectedQuarter] = useState<string>('Q3');
+  const [customStartDate, setCustomStartDate] = useState<string>('2026-09-01');
+  const [customEndDate, setCustomEndDate] = useState<string>('2026-09-30');
 
   const handleCopyBankNo = () => {
     const accountNo = profile.bankAccountNo || '1030013542580';
@@ -209,9 +245,65 @@ export const Cashbook: React.FC<CashbookProps> = ({
     };
   }, [transactions]);
 
+  // Filtered totals based on active period filter
+  const filteredTotals = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    
+    processedTransactions.forEach((tx) => {
+      let matchesPeriod = true;
+      if (periodType === 'TAHUNAN') {
+        matchesPeriod = tx.date.startsWith(selectedYear);
+      } else if (periodType === 'BULANAN') {
+        const mIndex = MONTH_INDEX_MAP[selectedMonth];
+        const prefix = `${selectedYear}-${mIndex < 10 ? `0${mIndex}` : mIndex}`;
+        matchesPeriod = tx.date.startsWith(prefix);
+      } else if (periodType === 'TRIWULAN') {
+        const q = QUARTERS.find((item) => item.id === selectedQuarter);
+        if (q) {
+          const txMonth = tx.date.slice(5, 7);
+          matchesPeriod = tx.date.startsWith(selectedYear) && txMonth >= q.startMonth && txMonth <= q.endMonth;
+        }
+      } else if (periodType === 'RENTANG_TANGGAL') {
+        matchesPeriod = (!customStartDate || tx.date >= customStartDate) && (!customEndDate || tx.date <= customEndDate);
+      }
+
+      if (matchesPeriod) {
+        if (tx.type === 'MASUK') income += tx.amount;
+        else expense += tx.amount;
+      }
+    });
+
+    return {
+      income,
+      expense,
+      balance: income - expense,
+    };
+  }, [processedTransactions, periodType, selectedYear, selectedMonth, selectedQuarter, customStartDate, customEndDate]);
+
   // Filtered view for the table
   const filteredTransactions = useMemo(() => {
     return processedTransactions.filter((tx) => {
+      // 1. Period Type Filter (Time Range & Period)
+      if (periodType === 'TAHUNAN') {
+        if (!tx.date.startsWith(selectedYear)) return false;
+      } else if (periodType === 'BULANAN') {
+        const mIndex = MONTH_INDEX_MAP[selectedMonth];
+        const prefix = `${selectedYear}-${mIndex < 10 ? `0${mIndex}` : mIndex}`;
+        if (!tx.date.startsWith(prefix)) return false;
+      } else if (periodType === 'TRIWULAN') {
+        const q = QUARTERS.find((item) => item.id === selectedQuarter);
+        if (q) {
+          const txMonth = tx.date.slice(5, 7);
+          const isMatch = tx.date.startsWith(selectedYear) && txMonth >= q.startMonth && txMonth <= q.endMonth;
+          if (!isMatch) return false;
+        }
+      } else if (periodType === 'RENTANG_TANGGAL') {
+        if (customStartDate && tx.date < customStartDate) return false;
+        if (customEndDate && tx.date > customEndDate) return false;
+      }
+
+      // 2. Search, Type, and Category Filters
       const matchSearch =
         tx.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (tx.receiptNumber && tx.receiptNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -223,7 +315,219 @@ export const Cashbook: React.FC<CashbookProps> = ({
 
       return true;
     });
-  }, [processedTransactions, searchTerm, typeFilter, categoryFilter]);
+  }, [processedTransactions, searchTerm, typeFilter, categoryFilter, periodType, selectedYear, selectedMonth, selectedQuarter, customStartDate, customEndDate]);
+
+  const handlePrintCashbook = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Gagal membuka jendela cetak. Pastikan browser Anda tidak memblokir pop-up.');
+      return;
+    }
+
+    const itemsToPrint = filteredTransactions.slice().reverse(); // Sort chronologically ascending for standard ledger printing
+    const rows = itemsToPrint.map((tx, idx) => {
+      const isMasuk = tx.type === 'MASUK';
+      const masukText = isMasuk ? formatRupiah(tx.amount) : '-';
+      const keluarText = !isMasuk ? formatRupiah(tx.amount) : '-';
+      return `
+        <tr>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: center;">${idx + 1}</td>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: center; font-family: monospace;">${formatDateIndo(tx.date)}</td>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; font-weight: bold; color: #0f172a;">${tx.description}</td>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: center;"><span style="background-color: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 8px; font-weight: bold; text-transform: uppercase;">${tx.category}</span></td>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: right; font-weight: bold; color: #059669;">${masukText}</td>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: right; font-weight: bold; color: #dc2626;">${keluarText}</td>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: right; font-family: monospace; font-weight: bold; background-color: #f8fafc;">${formatRupiah(tx.balanceAfter || 0)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const periodLabel = periodType === 'BULANAN' ? `Bulan ${selectedMonth} ${selectedYear}` :
+                        periodType === 'TRIWULAN' ? `Periode ${selectedQuarter} (${selectedYear})` :
+                        periodType === 'TAHUNAN' ? `Tahun ${selectedYear}` :
+                        periodType === 'RENTANG_TANGGAL' ? `Rentang ${formatDateIndo(customStartDate)} s.d. ${formatDateIndo(customEndDate)}` :
+                        'Semua Riwayat Transaksi';
+
+    const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' });
+    const treasurerOfficer = profile.officers?.find((o) => o.role.toLowerCase().includes('bendahara'));
+    const treasurerName = treasurerOfficer?.name || profile.treasurerName || 'Bendahara RT';
+    const chairpersonOfficer = profile.officers?.find((o) => o.role.toLowerCase().includes('ketua'));
+    const chairpersonName = chairpersonOfficer?.name || profile.chairpersonName || 'Ketua RT';
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>BUKU KAS RT ${profile.rtNumber} - ${periodLabel}</title>
+          <style>
+            @media print {
+              @page {
+                size: A4 portrait;
+                margin: 15mm 12mm;
+              }
+              body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+            body {
+              font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+              color: #1e293b;
+              margin: 0;
+              padding: 0;
+              font-size: 11px;
+              background-color: #ffffff;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 20px;
+              border-bottom: 3px double #1e293b;
+              padding-bottom: 12px;
+            }
+            .header h1 {
+              margin: 0 0 2px 0;
+              font-size: 18px;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              color: #0f172a;
+            }
+            .header p {
+              margin: 0;
+              font-size: 11px;
+              color: #475569;
+              font-weight: 500;
+            }
+            .report-meta {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 15px;
+              font-size: 10px;
+              font-weight: 600;
+              color: #334155;
+              background-color: #f8fafc;
+              padding: 8px 12px;
+              border-radius: 8px;
+              border: 1px solid #e2e8f0;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 25px;
+            }
+            th {
+              background-color: #047857;
+              color: #ffffff;
+              font-weight: bold;
+              text-align: center;
+              text-transform: uppercase;
+              font-size: 9px;
+            }
+            tr:nth-child(even) {
+              background-color: #f8fafc;
+            }
+            .totals-row td {
+              font-weight: bold;
+              background-color: #f1f5f9;
+              border-top: 2px solid #1e293b;
+            }
+            .footer-notes {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 35px;
+              page-break-inside: avoid;
+            }
+            .signature-block {
+              text-align: center;
+              width: 220px;
+            }
+            .signature-space {
+              height: 45px;
+            }
+            .signature-name {
+              font-weight: 700;
+              border-bottom: 1.5px solid #1e293b;
+              display: inline-block;
+              padding: 0 15px;
+              margin: 0;
+              color: #0f172a;
+            }
+            .system-note {
+              text-align: center;
+              font-size: 8px;
+              color: #94a3b8;
+              margin-top: 30px;
+              border-top: 1px dashed #cbd5e1;
+              padding-top: 8px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>RT ${profile.rtNumber} / RW ${profile.rwNumber} ${profile.name.toUpperCase()}</h1>
+            <p>Desa ${profile.subdistrict}, Kec. ${profile.district}, ${profile.city}, Jawa Barat</p>
+            <h2 style="margin: 8px 0 0 0; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: #0f172a; text-transform: uppercase;">BUKU KAS OPERASIONAL RT</h2>
+          </div>
+          
+          <div class="report-meta">
+            <div>Periode Laporan: <span style="color: #1e3a8a; font-weight: bold;">${periodLabel}</span></div>
+            <div>Pemasukan: <span style="color: #059669; font-weight: bold;">${formatRupiah(filteredTotals.income)}</span></div>
+            <div>Pengeluaran: <span style="color: #dc2626; font-weight: bold;">${formatRupiah(filteredTotals.expense)}</span></div>
+            <div>Tanggal Cetak: <span>${timestamp}</span></div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="border: 1px solid #94a3b8; padding: 6px; width: 35px; text-align: center;">NO</th>
+                <th style="border: 1px solid #94a3b8; padding: 6px; width: 80px; text-align: center;">TANGGAL</th>
+                <th style="border: 1px solid #94a3b8; padding: 6px; text-align: left;">URAIAN KETERANGAN</th>
+                <th style="border: 1px solid #94a3b8; padding: 6px; width: 120px; text-align: center;">KATEGORI</th>
+                <th style="border: 1px solid #94a3b8; padding: 6px; width: 100px; text-align: right;">PEMASUKAN</th>
+                <th style="border: 1px solid #94a3b8; padding: 6px; width: 100px; text-align: right;">PENGELUARAN</th>
+                <th style="border: 1px solid #94a3b8; padding: 6px; width: 110px; text-align: right;">SALDO AKHIR</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+              <tr class="totals-row">
+                <td colspan="4" style="border: 1px solid #94a3b8; padding: 6px; text-align: right; font-weight: bold;">JUMLAH PERIODE INI:</td>
+                <td style="border: 1px solid #94a3b8; padding: 6px; text-align: right; font-weight: bold; color: #059669;">${formatRupiah(filteredTotals.income)}</td>
+                <td style="border: 1px solid #94a3b8; padding: 6px; text-align: right; font-weight: bold; color: #dc2626;">${formatRupiah(filteredTotals.expense)}</td>
+                <td style="border: 1px solid #94a3b8; padding: 6px; text-align: right; font-weight: bold; background-color: #e2e8f0;">${formatRupiah(filteredTotals.balance)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="footer-notes">
+            <div class="signature-block">
+              <p style="margin: 0 0 8px 0; font-size: 10px; color: #475569;">Mengetahui,</p>
+              <p style="margin: 0 0 10px 0; font-size: 10px; color: #475569; font-weight: 600;">Ketua RT ${profile.rtNumber},</p>
+              <div class="signature-space"></div>
+              <p class="signature-name">${chairpersonName}</p>
+            </div>
+            
+            <div class="signature-block">
+              <p style="margin: 0 0 2px 0; font-size: 10px; color: #475569;">${profile.city}, ${new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</p>
+              <p style="margin: 0 0 10px 0; font-size: 10px; color: #475569; font-weight: 600;">Bendahara Pengurus RT,</p>
+              <div class="signature-space"></div>
+              <p class="signature-name">${treasurerName}</p>
+            </div>
+          </div>
+
+          <div class="system-note">
+            Laporan Buku Kas resmi warga RT. Dicatat secara transparan, otomatis, dan real-time di Aplikasi Buku Kas RT.
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   const debtTotals = useMemo(() => {
     let totalPiutangBelumLunas = 0;
@@ -730,16 +1034,16 @@ export const Cashbook: React.FC<CashbookProps> = ({
             <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <table className="w-full text-left text-xs border-collapse min-w-[900px]">
                 <thead>
-                  <tr className="bg-slate-900 text-white font-bold select-none text-[11px]">
-                    <th className="py-3 px-3 w-12 text-center border-r border-slate-800 sticky top-0 z-10 bg-slate-900">NO.</th>
-                    <th className="py-3 px-3.5 w-28 border-r border-slate-800 sticky top-0 z-10 bg-slate-900">JENIS</th>
-                    <th className="py-3 px-4 min-w-[200px] border-r border-slate-800 sticky top-0 z-10 bg-slate-900">NAMA PIHAK / WARGA</th>
-                    <th className="py-3 px-3.5 w-28 border-r border-slate-800 sticky top-0 z-10 bg-slate-900">TANGGAL</th>
-                    <th className="py-3 px-3.5 text-right w-32 border-r border-slate-800 sticky top-0 z-10 bg-slate-900">NOMINAL AWAL</th>
-                    <th className="py-3 px-3.5 text-right w-32 border-r border-slate-800 sticky top-0 z-10 bg-slate-900">SISA BELUM LUNAS</th>
-                    <th className="py-3 px-3.5 text-center w-28 border-r border-slate-800 sticky top-0 z-10 bg-slate-900">STATUS</th>
-                    <th className="py-3 px-4 min-w-[200px] border-r border-slate-800 sticky top-0 z-10 bg-slate-900">KETERANGAN</th>
-                    {isAdmin && <th className="py-3 px-3 text-center w-24 sticky top-0 z-10 bg-slate-900">AKSI</th>}
+                  <tr className="bg-emerald-800 text-white font-bold select-none text-[11px]">
+                    <th className="py-3 px-3 w-12 text-center border-r border-emerald-700 sticky top-0 z-10 bg-emerald-800">NO.</th>
+                    <th className="py-3 px-3.5 w-28 border-r border-emerald-700 sticky top-0 z-10 bg-emerald-800">JENIS</th>
+                    <th className="py-3 px-4 min-w-[200px] border-r border-emerald-700 sticky top-0 z-10 bg-emerald-800">NAMA PIHAK / WARGA</th>
+                    <th className="py-3 px-3.5 w-28 border-r border-emerald-700 sticky top-0 z-10 bg-emerald-800">TANGGAL</th>
+                    <th className="py-3 px-3.5 text-right w-32 border-r border-emerald-700 sticky top-0 z-10 bg-emerald-800">NOMINAL AWAL</th>
+                    <th className="py-3 px-3.5 text-right w-32 border-r border-emerald-700 sticky top-0 z-10 bg-emerald-800">SISA BELUM LUNAS</th>
+                    <th className="py-3 px-3.5 text-center w-28 border-r border-emerald-700 sticky top-0 z-10 bg-emerald-800">STATUS</th>
+                    <th className="py-3 px-4 min-w-[200px] border-r border-emerald-700 sticky top-0 z-10 bg-emerald-800">KETERANGAN</th>
+                    {isAdmin && <th className="py-3 px-3 text-center w-24 sticky top-0 z-10 bg-emerald-800">AKSI</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -836,13 +1140,190 @@ export const Cashbook: React.FC<CashbookProps> = ({
         </div>
       ) : (
         <div className="space-y-6">
+          {/* FILTER PANEL JANGKA WAKTU & DATA KEUANGAN */}
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-slate-800 font-bold text-sm">
+                <Filter className="w-4 h-4 text-emerald-600" />
+                <span>Filter Jangka Waktu & Periode Buku Kas</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                <span>Pilih jangka waktu untuk menyesuaikan rincian pemasukan, pengeluaran & tabel kas</span>
+              </div>
+            </div>
+
+            {/* Period Type Selection Buttons */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <button
+                type="button"
+                onClick={() => setPeriodType('TAHUNAN')}
+                className={`px-3 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer text-center ${
+                  periodType === 'TAHUNAN'
+                    ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                }`}
+              >
+                📅 Tahunan (2026)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriodType('BULANAN')}
+                className={`px-3 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer text-center ${
+                  periodType === 'BULANAN'
+                    ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                }`}
+              >
+                🗓 Bulanan
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriodType('TRIWULAN')}
+                className={`px-3 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer text-center ${
+                  periodType === 'TRIWULAN'
+                    ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                }`}
+              >
+                📊 Triwulan (Kuartal)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriodType('RENTANG_TANGGAL')}
+                className={`px-3 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer text-center ${
+                  periodType === 'RENTANG_TANGGAL'
+                    ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                }`}
+              >
+                ⏱ Rentang Tanggal
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriodType('SEMUA')}
+                className={`px-3 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer text-center col-span-2 sm:col-span-1 ${
+                  periodType === 'SEMUA'
+                    ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                }`}
+              >
+                📁 Semua Riwayat
+              </button>
+            </div>
+
+            {/* Secondary Detailed Filter Controls */}
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex flex-wrap items-center gap-3 text-xs">
+              {periodType === 'TAHUNAN' && (
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-slate-700">Pilih Tahun:</span>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value)}
+                    className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                  >
+                    <option value="2026">Tahun 2026</option>
+                    <option value="2025">Tahun 2025</option>
+                  </select>
+                </div>
+              )}
+
+              {periodType === 'BULANAN' && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-700">Tahun:</span>
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(e.target.value)}
+                      className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                    >
+                      <option value="2026">2026</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-700">Bulan:</span>
+                    <select
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value as MonthKey)}
+                      className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-emerald-800 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                    >
+                      {MONTHS.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {periodType === 'TRIWULAN' && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-700">Tahun:</span>
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(e.target.value)}
+                      className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                    >
+                      <option value="2026">2026</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-700">Pilih Triwulan:</span>
+                    <select
+                      value={selectedQuarter}
+                      onChange={(e) => setSelectedQuarter(e.target.value)}
+                      className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-emerald-800 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                    >
+                      {QUARTERS.map((q) => (
+                        <option key={q.id} value={q.id}>
+                          {q.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {periodType === 'RENTANG_TANGGAL' && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-slate-700">Dari Tanggal:</span>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="bg-white border border-slate-300 rounded-lg px-2 py-1 font-mono text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-slate-700">Sampai Tanggal:</span>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="bg-white border border-slate-300 rounded-lg px-2 py-1 font-mono text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {periodType === 'SEMUA' && (
+                <span className="text-slate-600 font-medium">
+                  Menampilkan seluruh data pembukuan kas dari awal transaksi hingga saat ini.
+                </span>
+              )}
+            </div>
+          </div>
+
           {/* Financial Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Current Cash Balance */}
             <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5 rounded-2xl shadow-xs border border-slate-700/50">
               <div className="flex items-center justify-between text-slate-400 mb-2">
                 <span className="text-xs font-semibold uppercase tracking-wider">
-                  Saldo Kas RT Saat Ini
+                  Saldo Riil Kas RT
                 </span>
                 <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl">
                   <Wallet className="w-5 h-5" />
@@ -853,7 +1334,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
               </div>
               <div className="text-xs text-slate-400 mt-2 flex items-center gap-1.5">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Kas fisik & rekening kas RT 05 / RW 08 Satriajaya per September 2026</span>
+                <span>Kas fisik & rekening kas RT 05 / RW 08 Satriajaya aktual</span>
               </div>
             </div>
 
@@ -861,17 +1342,17 @@ export const Cashbook: React.FC<CashbookProps> = ({
             <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs min-w-0 overflow-hidden">
               <div className="flex items-center justify-between text-slate-500 mb-2 gap-1">
                 <span className="text-xs font-semibold uppercase tracking-wider truncate">
-                  Total Pemasukan Kas
+                  Pemasukan Periode Ini
                 </span>
                 <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
                   <TrendingUp className="w-5 h-5" />
                 </div>
               </div>
-              <div className="text-lg sm:text-xl lg:text-2xl font-bold font-mono text-emerald-600 tracking-tight truncate" title={formatRupiah(totals.income)}>
-                {formatRupiah(totals.income)}
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold font-mono text-emerald-600 tracking-tight truncate" title={formatRupiah(filteredTotals.income)}>
+                {formatRupiah(filteredTotals.income)}
               </div>
               <div className="text-xs text-slate-500 mt-2 truncate">
-                Saldo awal, iuran warga & sumbangan dana kades
+                Total pemasukan kas selama periode terpilih
               </div>
             </div>
 
@@ -879,17 +1360,17 @@ export const Cashbook: React.FC<CashbookProps> = ({
             <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs min-w-0 overflow-hidden">
               <div className="flex items-center justify-between text-slate-500 mb-2 gap-1">
                 <span className="text-xs font-semibold uppercase tracking-wider truncate">
-                  Total Pengeluaran Kas
+                  Pengeluaran Periode Ini
                 </span>
                 <div className="p-2 bg-rose-50 text-rose-600 rounded-xl shrink-0">
                   <TrendingDown className="w-5 h-5" />
                 </div>
               </div>
-              <div className="text-lg sm:text-xl lg:text-2xl font-bold font-mono text-rose-600 tracking-tight truncate" title={formatRupiah(totals.expense)}>
-                {formatRupiah(totals.expense)}
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold font-mono text-rose-600 tracking-tight truncate" title={formatRupiah(filteredTotals.expense)}>
+                {formatRupiah(filteredTotals.expense)}
               </div>
               <div className="text-xs text-slate-500 mt-2 truncate">
-                Iuran RW, kasbon & biaya administrasi bank
+                Total pengeluaran kas selama periode terpilih
               </div>
             </div>
           </div>
@@ -965,7 +1446,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
 
         {/* Right: Search & Add Button */}
         <div className="flex items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
-          <div className="relative flex-1 md:w-64">
+          <div className="relative flex-1 md:w-56">
             <input
               type="text"
               value={searchTerm}
@@ -975,6 +1456,16 @@ export const Cashbook: React.FC<CashbookProps> = ({
             />
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
           </div>
+
+          <button
+            type="button"
+            onClick={handlePrintCashbook}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors shrink-0 cursor-pointer border border-rose-700"
+            title="Cetak Buku Kas ke PDF / Kertas"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Cetak Kas</span>
+          </button>
 
           {isAdmin && (
             <button
@@ -993,14 +1484,14 @@ export const Cashbook: React.FC<CashbookProps> = ({
         <div className="overflow-x-auto max-h-[650px] overflow-y-auto">
           <table className="w-full text-left text-xs border-collapse min-w-[850px]">
             <thead>
-              <tr className="bg-blue-600 text-white font-bold select-none text-[11px]">
-                <th className="py-3 px-3 w-12 text-center border-r border-blue-500 sticky top-0 z-10 bg-blue-600">NO.</th>
-                <th className="py-3 px-3.5 w-28 border-r border-blue-500 sticky top-0 z-10 bg-blue-600">TANGGAL</th>
-                <th className="py-3 px-4 min-w-[260px] border-r border-blue-500 sticky top-0 z-10 bg-blue-600">KETERANGAN</th>
-                <th className="py-3 px-3.5 text-right w-32 border-r border-blue-500 sticky top-0 z-10 bg-blue-600">PEMASUKAN</th>
-                <th className="py-3 px-3.5 text-right w-32 border-r border-blue-500 sticky top-0 z-10 bg-blue-600">PENGELUARAN</th>
-                <th className="py-3 px-4 text-right w-36 bg-blue-700 sticky top-0 z-10">SALDO BERJALAN</th>
-                {isAdmin && <th className="py-3 px-3 text-center w-20 bg-blue-800 sticky top-0 z-10">AKSI</th>}
+              <tr className="bg-emerald-600 text-white font-bold select-none text-[11px]">
+                <th className="py-3 px-3 w-12 text-center border-r border-emerald-500 sticky top-0 z-10 bg-emerald-600">NO.</th>
+                <th className="py-3 px-3.5 w-28 border-r border-emerald-500 sticky top-0 z-10 bg-emerald-600">TANGGAL</th>
+                <th className="py-3 px-4 min-w-[260px] border-r border-emerald-500 sticky top-0 z-10 bg-emerald-600">KETERANGAN</th>
+                <th className="py-3 px-3.5 text-right w-32 border-r border-emerald-500 sticky top-0 z-10 bg-emerald-600">PEMASUKAN</th>
+                <th className="py-3 px-3.5 text-right w-32 border-r border-emerald-500 sticky top-0 z-10 bg-emerald-600">PENGELUARAN</th>
+                <th className="py-3 px-4 text-right w-36 bg-emerald-700 sticky top-0 z-10">SALDO BERJALAN</th>
+                {isAdmin && <th className="py-3 px-3 text-center w-20 bg-emerald-800 sticky top-0 z-10">AKSI</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">

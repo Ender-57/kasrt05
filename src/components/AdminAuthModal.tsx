@@ -23,10 +23,68 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
   const [showPin, setShowPin] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Lockout States
+  const [attempts, setAttempts] = useState(() => {
+    return Number(localStorage.getItem('rt_admin_failed_attempts') || '0');
+  });
+  const [lockoutUntil, setLockoutUntil] = useState(() => {
+    return Number(localStorage.getItem('rt_admin_lockout_until') || '0');
+  });
+  const [timeLeft, setTimeLeft] = useState(0);
+
+  // Manage lockout countdown timer
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const checkLockout = () => {
+      const storedUntil = Number(localStorage.getItem('rt_admin_lockout_until') || '0');
+      if (storedUntil > Date.now()) {
+        setLockoutUntil(storedUntil);
+        setTimeLeft(Math.ceil((storedUntil - Date.now()) / 1000));
+      } else {
+        setLockoutUntil(0);
+        setTimeLeft(0);
+      }
+    };
+    
+    checkLockout();
+
+    if (lockoutUntil > Date.now()) {
+      const interval = setInterval(() => {
+        const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+        if (remaining <= 0) {
+          setTimeLeft(0);
+          setLockoutUntil(0);
+          setAttempts(0);
+          localStorage.removeItem('rt_admin_lockout_until');
+          localStorage.removeItem('rt_admin_failed_attempts');
+          setError(null);
+          clearInterval(interval);
+        } else {
+          setTimeLeft(remaining);
+        }
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [lockoutUntil, isOpen]);
+
   if (!isOpen) return null;
+
+  const formatTimeLeft = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const now = Date.now();
+    const storedUntil = Number(localStorage.getItem('rt_admin_lockout_until') || '0');
+    if (storedUntil > now) {
+      setError(`Akses diblokir. Silakan coba lagi dalam ${formatTimeLeft(Math.ceil((storedUntil - now) / 1000))}.`);
+      return;
+    }
+
     const trimmedInput = pin.trim();
     const effectivePin = resolveAdminPin(profile.adminPin);
     const storedPin = profile.adminPin;
@@ -43,9 +101,24 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
       onSuccess();
       setPin('');
       setError(null);
+      setAttempts(0);
+      localStorage.removeItem('rt_admin_failed_attempts');
+      localStorage.removeItem('rt_admin_lockout_until');
       onClose();
     } else {
-      setError('PIN Pengurus salah! Silakan coba lagi atau tanyakan kepada Ketua/Bendahara RT.');
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+      localStorage.setItem('rt_admin_failed_attempts', String(newAttempts));
+
+      if (newAttempts >= 5) {
+        const lockTime = Date.now() + 30 * 60 * 1000; // 30 minutes block
+        setLockoutUntil(lockTime);
+        localStorage.setItem('rt_admin_lockout_until', String(lockTime));
+        setError(`Batas percobaan terlampaui. Akses Anda diblokir selama 30 menit!`);
+        setPin('');
+      } else {
+        setError(`PIN Pengurus salah! Sisa percobaan: ${5 - newAttempts} kali lagi.`);
+      }
     }
   };
 
@@ -92,18 +165,20 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
                   type={showPin ? 'text' : 'password'}
                   maxLength={10}
                   value={pin}
+                  disabled={lockoutUntil > Date.now()}
                   onChange={(e) => {
                     setPin(e.target.value);
                     if (error) setError(null);
                   }}
-                  placeholder="Ketik 6 digit PIN..."
+                  placeholder={lockoutUntil > Date.now() ? `Terblokir (${formatTimeLeft(timeLeft)})` : "Ketik 6 digit PIN..."}
                   autoFocus
-                  className="w-full px-10 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-mono text-center tracking-widest text-lg"
+                  className="w-full px-10 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-mono text-center tracking-widest text-lg disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPin(!showPin)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer focus:outline-hidden"
+                  disabled={lockoutUntil > Date.now()}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer focus:outline-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                   title={showPin ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
                   aria-label={showPin ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
                 >
@@ -121,9 +196,10 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
 
             <button
               type="submit"
-              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow-xs transition-colors cursor-pointer"
+              disabled={lockoutUntil > Date.now()}
+              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow-xs transition-colors cursor-pointer disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
             >
-              Masuk Sebagai Pengurus
+              {lockoutUntil > Date.now() ? `Coba lagi dalam ${formatTimeLeft(timeLeft)}` : "Masuk Sebagai Pengurus"}
             </button>
           </form>
 

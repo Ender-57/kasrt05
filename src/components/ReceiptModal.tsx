@@ -60,19 +60,28 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     if (!receiptRef.current) return;
     try {
       setIsDownloading(true);
-      const dataUrl = await toPng(receiptRef.current, {
+      
+      // Clone node to prevent layout compression in mobile modal viewports
+      const originalNode = receiptRef.current;
+      const clonedNode = originalNode.cloneNode(true) as HTMLElement;
+      clonedNode.style.width = '650px';
+      clonedNode.style.position = 'fixed';
+      clonedNode.style.top = '-9999px';
+      clonedNode.style.left = '-9999px';
+      clonedNode.style.transform = 'none';
+      clonedNode.style.backgroundColor = '#ffffff';
+      document.body.appendChild(clonedNode);
+
+      const dataUrl = await toPng(clonedNode, {
         quality: 0.95,
         pixelRatio: 2,
         backgroundColor: '#ffffff',
         skipFonts: true,
         cacheBust: true,
-        style: {
-          width: '650px',
-          margin: '0',
-          transform: 'none',
-        },
-        width: 650,
       });
+      
+      document.body.removeChild(clonedNode);
+
       const link = document.createElement('a');
       const cleanFileName = `Kuitansi_${resident.name.replace(/\s+/g, '_')}_${receiptNumber}.png`;
       link.download = cleanFileName;
@@ -113,19 +122,27 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     if (!receiptRef.current) return;
     try {
       setIsDownloading(true);
-      const dataUrl = await toPng(receiptRef.current, {
+      
+      // Clone node to prevent layout compression in mobile modal viewports
+      const originalNode = receiptRef.current;
+      const clonedNode = originalNode.cloneNode(true) as HTMLElement;
+      clonedNode.style.width = '650px';
+      clonedNode.style.position = 'fixed';
+      clonedNode.style.top = '-9999px';
+      clonedNode.style.left = '-9999px';
+      clonedNode.style.transform = 'none';
+      clonedNode.style.backgroundColor = '#ffffff';
+      document.body.appendChild(clonedNode);
+
+      const dataUrl = await toPng(clonedNode, {
         quality: 0.95,
         pixelRatio: 2,
         backgroundColor: '#ffffff',
         skipFonts: true,
         cacheBust: true,
-        style: {
-          width: '650px',
-          margin: '0',
-          transform: 'none',
-        },
-        width: 650,
       });
+      
+      document.body.removeChild(clonedNode);
       
       const resBlob = await fetch(dataUrl);
       const blob = await resBlob.blob();

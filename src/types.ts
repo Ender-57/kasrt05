@@ -163,3 +163,23 @@ export interface DebtItem {
   notes?: string;
   paymentsHistory?: DebtPaymentRecord[];
 }
+
+export interface IncidentalDuesPayment {
+  paid: boolean;
+  paidAt?: string;
+  receiptNo?: string;
+  paymentMethod?: 'Tunai' | 'Transfer Bank' | 'QRIS RT';
+  note?: string;
+}
+
+export interface IncidentalDuesProgram {
+  id: string;
+  title: string;
+  amount: number;
+  date: string;
+  description?: string;
+  payments: {
+    [residentId: string]: IncidentalDuesPayment;
+  };
+}
+

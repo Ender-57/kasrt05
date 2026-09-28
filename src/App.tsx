@@ -17,6 +17,7 @@ import {
   MonthKey,
   GoogleSyncState,
   DebtItem,
+  IncidentalDuesProgram,
 } from './types';
 import {
   INITIAL_RESIDENTS,
@@ -33,6 +34,9 @@ import {
   subscribeToTransactions,
   subscribeToDebts,
   subscribeToSyncState,
+  subscribeToIncidentalDues,
+  saveIncidentalDuesProgram,
+  deleteIncidentalDuesProgram,
   saveProfile,
   saveTransaction,
   deleteTransaction,
@@ -57,6 +61,7 @@ export default function App() {
   const [residents, setResidents] = useState<Resident[]>(INITIAL_RESIDENTS);
   const [transactions, setTransactions] = useState<CashTransaction[]>(INITIAL_TRANSACTIONS);
   const [debts, setDebts] = useState<DebtItem[]>(INITIAL_DEBTS);
+  const [incidentalPrograms, setIncidentalPrograms] = useState<IncidentalDuesProgram[]>([]);
   const [profile, setProfile] = useState<RTProfile>(INITIAL_RT_PROFILE);
   const [syncState, setSyncState] = useState<GoogleSyncState>({
     spreadsheetId: null,
@@ -95,6 +100,7 @@ export default function App() {
     let unsubTransactions: (() => void) | null = null;
     let unsubDebts: (() => void) | null = null;
     let unsubSyncState: (() => void) | null = null;
+    let unsubIncidental: (() => void) | null = null;
 
     const setupFirebaseAndSubscribe = async () => {
       try {
@@ -120,6 +126,10 @@ export default function App() {
         unsubSyncState = subscribeToSyncState((updatedSyncState) => {
           if (active) setSyncState(updatedSyncState);
         });
+
+        unsubIncidental = subscribeToIncidentalDues((updatedIncidental) => {
+          if (active) setIncidentalPrograms(updatedIncidental);
+        });
       } catch (err) {
         console.error('Failed to initialize Firestore subscription:', err);
       }
@@ -134,6 +144,7 @@ export default function App() {
       if (unsubTransactions) unsubTransactions();
       if (unsubDebts) unsubDebts();
       if (unsubSyncState) unsubSyncState();
+      if (unsubIncidental) unsubIncidental();
     };
   }, []);
 
@@ -221,6 +232,24 @@ export default function App() {
     } catch (err: unknown) {
       console.error('Error updating debts in Firestore:', err);
       setDbErrorMessage(err instanceof Error ? err.message : 'Gagal memperbarui utang/piutang di Firebase.');
+    }
+  };
+
+  const handleSaveIncidentalProgram = async (program: IncidentalDuesProgram) => {
+    try {
+      await saveIncidentalDuesProgram(program);
+    } catch (err: unknown) {
+      console.error('Error saving incidental dues program:', err);
+      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal menyimpan iuran insidentil di Firebase.');
+    }
+  };
+
+  const handleDeleteIncidentalProgram = async (id: string) => {
+    try {
+      await deleteIncidentalDuesProgram(id);
+    } catch (err: unknown) {
+      console.error('Error deleting incidental dues program:', err);
+      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal menghapus iuran insidentil di Firebase.');
     }
   };
 
@@ -349,6 +378,9 @@ export default function App() {
             onUpdateResidents={handleUpdateResidents}
             onAddTransaction={handleAddTransaction}
             onViewReceipt={handleViewReceipt}
+            incidentalPrograms={incidentalPrograms}
+            onSaveIncidentalProgram={handleSaveIncidentalProgram}
+            onDeleteIncidentalProgram={handleDeleteIncidentalProgram}
           />
         )}
 

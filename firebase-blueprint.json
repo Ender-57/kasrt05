@@ -101,6 +101,20 @@
         "statusMessage": { "type": "string" }
       },
       "required": ["syncInProgress"]
+    },
+    "incidentalDues": {
+      "title": "Incidental Dues Program",
+      "description": "An incidental one-off dues program tracking payments of each resident",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string" },
+        "description": { "type": "string" },
+        "payments": { "type": "object" }
+      },
+      "required": ["id", "title", "amount", "date", "payments"]
     }
   },
   "firestore": {
@@ -123,6 +137,10 @@
     "/syncState/{stateId}": {
       "schema": "syncState",
       "description": "Store Google synchronization status"
+    },
+    "/incidentalDues/{incidentalId}": {
+      "schema": "incidentalDues",
+      "description": "Store individual incidental dues programs"
     }
   }
 }

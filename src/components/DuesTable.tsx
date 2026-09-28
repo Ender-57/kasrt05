@@ -20,11 +20,12 @@ import {
   X,
   MessageCircle,
 } from 'lucide-react';
-import { Resident, MonthKey, MONTHS, RTProfile, CashTransaction } from '../types';
+import { Resident, MonthKey, MONTHS, RTProfile, CashTransaction, IncidentalDuesProgram } from '../types';
 import { formatRupiah, formatAttachmentFileName } from '../utils/formatters';
 import { runSelfHealing } from '../utils/selfHealing';
 import { PaymentCorrectionModal } from './PaymentCorrectionModal';
 import { ResidentFormModal } from './ResidentFormModal';
+import { IncidentalDuesView } from './IncidentalDuesView';
 import { uploadFileToGoogleDrive } from '../services/googleDrive';
 import { getAccessToken, googleSignIn } from '../services/auth';
 
@@ -52,6 +53,9 @@ interface DuesTableProps {
     receiptNo: string,
     date: string
   ) => void;
+  incidentalPrograms?: IncidentalDuesProgram[];
+  onSaveIncidentalProgram?: (program: IncidentalDuesProgram) => Promise<void>;
+  onDeleteIncidentalProgram?: (id: string) => Promise<void>;
 }
 
 export const DuesTable: React.FC<DuesTableProps> = ({
@@ -62,8 +66,12 @@ export const DuesTable: React.FC<DuesTableProps> = ({
   onUpdateResidents,
   onAddTransaction,
   onViewReceipt,
+  incidentalPrograms = [],
+  onSaveIncidentalProgram,
+  onDeleteIncidentalProgram,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeDuesTab, setActiveDuesTab] = useState<'MONTHLY' | 'INCIDENTAL'>('MONTHLY');
   const [filterTab, setFilterTab] = useState<'ALL' | 'LUNAS' | 'NUNGGAK' | 'KOSONG'>('ALL');
   const [copiedBankNo, setCopiedBankNo] = useState(false);
   const [selectedArrearsResident, setSelectedArrearsResident] = useState<Resident | null>(null);
@@ -675,7 +683,35 @@ export const DuesTable: React.FC<DuesTableProps> = ({
         </div>
       )}
 
-      {/* Quick Resident Search Dropdown Section */}
+      {/* Tab Switcher: Iuran Rutin vs Iuran Insidentil */}
+      <div className="flex border-b border-slate-200">
+        <button
+          type="button"
+          onClick={() => setActiveDuesTab('MONTHLY')}
+          className={`flex-1 sm:flex-initial py-3 px-6 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            activeDuesTab === 'MONTHLY'
+              ? 'border-emerald-600 text-emerald-700'
+              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+          }`}
+        >
+          Iuran Bulanan (Rutin)
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveDuesTab('INCIDENTAL')}
+          className={`flex-1 sm:flex-initial py-3 px-6 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            activeDuesTab === 'INCIDENTAL'
+              ? 'border-emerald-600 text-emerald-700'
+              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+          }`}
+        >
+          Iuran Insidentil (Khusus)
+        </button>
+      </div>
+
+      {activeDuesTab === 'MONTHLY' ? (
+        <>
+          {/* Quick Resident Search Dropdown Section */}
       <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-emerald-200/90 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-emerald-100 text-emerald-800 rounded-xl shrink-0">
@@ -1170,6 +1206,18 @@ export const DuesTable: React.FC<DuesTableProps> = ({
           </span>
         </div>
       </div>
+    </>
+      ) : (
+        <IncidentalDuesView
+          residents={residents}
+          isAdmin={isAdmin}
+          profile={profile}
+          onAddTransaction={onAddTransaction}
+          incidentalPrograms={incidentalPrograms}
+          onSaveIncidentalProgram={onSaveIncidentalProgram}
+          onDeleteIncidentalProgram={onDeleteIncidentalProgram}
+        />
+      )}
 
       {/* QUICK PAYMENT MODAL (for Admin) */}
       {isPayModalOpen && selectedResident && (

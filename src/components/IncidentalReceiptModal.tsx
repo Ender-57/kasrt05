@@ -1,39 +1,34 @@
 import React, { useRef, useState } from 'react';
-import { X, Printer, Share2, CheckCircle2, Building, ShieldCheck, Download, Loader2 } from 'lucide-react';
+import { X, Printer, Share2, CheckCircle2, ShieldCheck, Download, Loader2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
-import { Resident, MonthKey, RTProfile } from '../types';
+import { Resident, RTProfile, IncidentalDuesProgram, IncidentalDuesPayment } from '../types';
 import { formatRupiah, formatDateIndo, terbilang, getOfficerForDate } from '../utils/formatters';
 
-interface ReceiptModalProps {
+interface IncidentalReceiptModalProps {
   isOpen: boolean;
   onClose: () => void;
   resident: Resident | null;
-  monthsPaid: MonthKey[];
-  totalAmount: number;
-  paymentMethod: string;
-  receiptNumber: string;
-  paymentDate: string;
+  program: IncidentalDuesProgram | null;
+  payment: IncidentalDuesPayment | null;
   profile: RTProfile;
 }
 
-export const ReceiptModal: React.FC<ReceiptModalProps> = ({
+export const IncidentalReceiptModal: React.FC<IncidentalReceiptModalProps> = ({
   isOpen,
   onClose,
   resident,
-  monthsPaid,
-  totalAmount,
-  paymentMethod,
-  receiptNumber,
-  paymentDate,
+  program,
+  payment,
   profile,
 }) => {
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  if (!isOpen || !resident) return null;
+  if (!isOpen || !resident || !program || !payment) return null;
 
-  // Mendapatkan pejabat bendahara yang aktif pada tanggal kuitansi / pembayaran diinput
+  const paymentDate = payment.paidAt || program.date;
   const treasurerOfficer = getOfficerForDate(profile, 'Bendahara', paymentDate);
+  const receiptNumber = payment.receiptNo || `KW-INS-${Date.now().toString().slice(-6)}`;
 
   const handlePrint = () => {
     window.print();
@@ -51,7 +46,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         cacheBust: true,
       });
       const link = document.createElement('a');
-      const cleanFileName = `Kuitansi_${resident.name.replace(/\s+/g, '_')}_${receiptNumber}.png`;
+      const cleanFileName = `Kuitansi_Insidentil_${resident.name.replace(/\s+/g, '_')}_${receiptNumber}.png`;
       link.download = cleanFileName;
       link.href = dataUrl;
       document.body.appendChild(link);
@@ -66,14 +61,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   };
 
   const handleShareWhatsApp = () => {
-    const monthsText = monthsPaid.join(', ');
-    const message = `*BUKTI PEMBAYARAN IURAN RT*\n` +
+    const message = `*BUKTI PEMBAYARAN IURAN RT (INSIDENTIL)*\n` +
       `No. Kuitansi: ${receiptNumber}\n` +
       `Warga: ${resident.name} (Rumah No. ${resident.houseNo})\n` +
-      `Iuran Bulan: ${monthsText} 2026\n` +
-      `Nominal: ${formatRupiah(totalAmount)} (${paymentMethod})\n` +
-      `Tanggal: ${formatDateIndo(paymentDate)}\n` +
-      `Status: LUNAS / DITERIMA\n\n` +
+      `Program: ${program.title}\n` +
+      `Nominal: ${formatRupiah(program.amount)} (${payment.paymentMethod || 'Tunai'})\n` +
+      `Tanggal Bayar: ${formatDateIndo(paymentDate)}\n` +
+      `Status: LUNAS / DITERIMA\n` +
+      (payment.note ? `Catatan: ${payment.note}\n` : '') + `\n` +
       `Terima kasih atas partisipasi aktif Bapak/Ibu demi kemajuan lingkungan ${profile.name}.\n\n` +
       `_Salam hangat,_\n` +
       `*Pengurus ${profile.name}*`;
@@ -100,15 +95,16 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       
       const resBlob = await fetch(dataUrl);
       const blob = await resBlob.blob();
-      const file = new File([blob], `Kuitansi_${resident.name.replace(/\s+/g, '_')}_${receiptNumber}.png`, { type: 'image/png' });
+      const file = new File([blob], `Kuitansi_Insidentil_${resident.name.replace(/\s+/g, '_')}_${receiptNumber}.png`, { type: 'image/png' });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
           title: `Kuitansi RT - ${resident.name}`,
-          text: `Bukti Pembayaran Iuran RT - ${monthsPaid.join(', ')} - ${resident.name} LUNAS`,
+          text: `Bukti Pembayaran Iuran RT (Insidentil) - ${program.title} - ${resident.name} LUNAS`,
         });
       } else {
+        // Fallback: Download file, alert instruction, and trigger normal WhatsApp message share
         const link = document.createElement('a');
         link.download = file.name;
         link.href = dataUrl;
@@ -135,9 +131,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white print:hidden">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-emerald-400" />
-            <span className="font-semibold text-sm tracking-wide">Kuitansi Digital RT Resmi</span>
+            <span className="font-semibold text-sm tracking-wide">Kuitansi Digital RT Resmi (Insidentil)</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={handleDownload}
               disabled={isDownloading}
@@ -149,7 +145,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               ) : (
                 <Download className="w-3.5 h-3.5" />
               )}
-              <span>{isDownloading ? 'Mengunduh...' : 'Download Kuitansi'}</span>
+              <span>{isDownloading ? 'Mengunduh...' : 'Download'}</span>
             </button>
             <button
               onClick={handleShareWhatsApp}
@@ -164,7 +160,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors cursor-pointer shadow-xs"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Cetak / PDF</span>
+              <span>Cetak</span>
             </button>
             <button
               onClick={onClose}
@@ -190,6 +186,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   src="/logo-rt05.png"
                   alt="Logo RT 05"
                   className="w-14 h-14 object-contain rounded-full border border-slate-300 shadow-2xs shrink-0"
+                  onError={(e) => {
+                    // Fallback to RT Logo styled element if image fails
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
                 />
                 <div className="text-left">
                   <h2 className="text-lg font-bold tracking-tight text-slate-900 uppercase leading-tight">
@@ -201,7 +201,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 </div>
               </div>
               <div className="inline-block mt-2 px-3 py-1 bg-slate-900 text-white text-xs font-semibold uppercase tracking-wider rounded">
-                KUITANSI PEMBAYARAN IURAN WARGA
+                KUITANSI PEMBAYARAN SWADAYA WARGA
               </div>
             </div>
 
@@ -212,7 +212,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 <span className="font-mono font-bold text-slate-900">{receiptNumber}</span>
               </div>
               <div>
-                <span className="font-semibold text-slate-700">Tanggal:</span>{' '}
+                <span className="font-semibold text-slate-700">Tanggal Bayar:</span>{' '}
                 <span>{formatDateIndo(paymentDate)}</span>
               </div>
             </div>
@@ -233,7 +233,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 <div className="col-span-4 text-slate-500 font-medium">Jumlah Pembayaran</div>
                 <div className="col-span-8">
                   <span className="text-base font-bold text-emerald-700 font-mono">
-                    {formatRupiah(totalAmount)}
+                    {formatRupiah(program.amount)}
                   </span>
                 </div>
               </div>
@@ -241,32 +241,34 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               <div className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-100 bg-amber-50/50 p-2 rounded">
                 <div className="col-span-4 text-slate-600 font-medium">Terbilang</div>
                 <div className="col-span-8 italic font-serif text-slate-800 text-xs leading-relaxed">
-                  "{terbilang(totalAmount)} Rupiah"
+                  "{terbilang(program.amount)} Rupiah"
                 </div>
               </div>
 
               <div className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-100">
-                <div className="col-span-4 text-slate-500 font-medium">Untuk Iuran Bulan</div>
+                <div className="col-span-4 text-slate-500 font-medium">Untuk Program Iuran</div>
                 <div className="col-span-8">
-                  <div className="flex flex-wrap gap-1.5">
-                    {monthsPaid.map((m) => (
-                      <span
-                        key={m}
-                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800"
-                      >
-                        ✓ {m} 2026
-                      </span>
-                    ))}
-                  </div>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
+                    ✓ {program.title}
+                  </span>
                 </div>
               </div>
 
               <div className="grid grid-cols-12 gap-2 py-1.5">
                 <div className="col-span-4 text-slate-500 font-medium">Metode Pembayaran</div>
-                <div className="col-span-8 text-slate-800 font-medium">
-                  {paymentMethod}
+                <div className="col-span-8 text-slate-800 font-semibold">
+                  {payment.paymentMethod || 'Tunai'}
                 </div>
               </div>
+
+              {payment.note && (
+                <div className="grid grid-cols-12 gap-2 py-1.5 border-t border-slate-100">
+                  <div className="col-span-4 text-slate-500 font-medium">Keterangan</div>
+                  <div className="col-span-8 italic text-slate-600 text-xs">
+                    "{payment.note}"
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Signature & Stamp Section */}

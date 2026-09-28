@@ -13,7 +13,7 @@ import {
   getDocFromServer
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Resident, CashTransaction, RTProfile, DebtItem, GoogleSyncState } from '../types';
+import { Resident, CashTransaction, RTProfile, DebtItem, GoogleSyncState, IncidentalDuesProgram } from '../types';
 import {
   INITIAL_RESIDENTS,
   INITIAL_TRANSACTIONS,
@@ -187,6 +187,18 @@ export const subscribeToDebts = (onUpdate: (debts: DebtItem[]) => void) => {
   });
 };
 
+export const subscribeToIncidentalDues = (onUpdate: (programs: IncidentalDuesProgram[]) => void) => {
+  const ref = collection(db, 'incidentalDues');
+  return onSnapshot(ref, (snap) => {
+    const list: IncidentalDuesProgram[] = [];
+    snap.forEach((doc) => {
+      list.push(doc.data() as IncidentalDuesProgram);
+    });
+    list.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+    onUpdate(list);
+  });
+};
+
 /**
  * Helper to recursively remove undefined fields from data before saving to Firestore.
  * Firestore throws errors when encountering undefined field values.
@@ -263,6 +275,16 @@ export const saveDebtsBatch = async (debts: DebtItem[]) => {
     batch.set(ref, sanitizeData(d));
   });
   await batch.commit();
+};
+
+export const saveIncidentalDuesProgram = async (program: IncidentalDuesProgram) => {
+  const ref = doc(db, 'incidentalDues', program.id);
+  await setDoc(ref, sanitizeData(program));
+};
+
+export const deleteIncidentalDuesProgram = async (id: string) => {
+  const ref = doc(db, 'incidentalDues', id);
+  await deleteDoc(ref);
 };
 
 /**

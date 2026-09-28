@@ -41,5 +41,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isValidId(stateId);
     }
+
+    // --- Incidental Dues Rules ---
+    match /incidentalDues/{incidentalId} {
+      allow read: if true;
+      allow write: if isValidId(incidentalId);
+    }
   }
 }

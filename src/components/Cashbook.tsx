@@ -17,6 +17,8 @@ import {
   Upload,
   FileText,
   AlertTriangle,
+  Copy,
+  Check,
 } from 'lucide-react';
 import {
   CashTransaction,
@@ -83,6 +85,14 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const [typeFilter, setTypeFilter] = useState<'ALL' | TransactionType>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | TransactionCategory>('ALL');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [copiedBankNo, setCopiedBankNo] = useState(false);
+
+  const handleCopyBankNo = () => {
+    const accountNo = profile.bankAccountNo || '1030013542580';
+    navigator.clipboard.writeText(accountNo);
+    setCopiedBankNo(true);
+    setTimeout(() => setCopiedBankNo(false), 2000);
+  };
 
   // Delete Confirmation States (Safe for iframe)
   const [deleteConfirmTx, setDeleteConfirmTx] = useState<{ id: string; desc: string; amount: number; type: TransactionType } | null>(null);
@@ -545,9 +555,29 @@ export const Cashbook: React.FC<CashbookProps> = ({
               Pembayaran Iuran RT dapat dilakukan melalui transfer ke nomor rekening Bendahara berikut:
             </span>
             <div className="flex flex-wrap items-center gap-2 mt-0.5">
-              <span className="font-mono text-sm sm:text-base font-extrabold text-slate-900 bg-white px-2.5 py-0.5 rounded-lg border border-slate-200 shadow-2xs tracking-wider">
-                {profile.bankAccountNo || '1030013542580'}
-              </span>
+              <div className="inline-flex items-center gap-1.5 bg-white px-2.5 py-0.5 rounded-lg border border-slate-200 shadow-2xs">
+                <span className="font-mono text-sm sm:text-base font-extrabold text-slate-900 tracking-wider">
+                  {profile.bankAccountNo || '1030013542580'}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyBankNo}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 rounded text-[11px] font-semibold transition-colors cursor-pointer border border-slate-200"
+                  title="Salin nomor rekening ke clipboard"
+                >
+                  {copiedBankNo ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-600 font-bold">Tersalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Salin</span>
+                    </>
+                  )}
+                </button>
+              </div>
               <span className="text-xs font-bold text-slate-800">
                 atas nama <span className="text-blue-900 font-extrabold">{profile.bankAccountHolder || profile.treasurerName || 'Bendahara RT'}</span>
               </span>

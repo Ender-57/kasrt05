@@ -56,26 +56,23 @@ export const IncidentalReceiptModal: React.FC<IncidentalReceiptModalProps> = ({
     try {
       setIsDownloading(true);
 
-      // Clone node to prevent layout compression in mobile modal viewports
-      const originalNode = receiptRef.current;
-      const clonedNode = originalNode.cloneNode(true) as HTMLElement;
-      clonedNode.style.width = '650px';
-      clonedNode.style.position = 'fixed';
-      clonedNode.style.top = '-9999px';
-      clonedNode.style.left = '-9999px';
-      clonedNode.style.transform = 'none';
-      clonedNode.style.backgroundColor = '#ffffff';
-      document.body.appendChild(clonedNode);
-
-      const dataUrl = await toPng(clonedNode, {
-        quality: 0.95,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        skipFonts: true,
-        cacheBust: true,
-      });
-
-      document.body.removeChild(clonedNode);
+      // Safari/iOS Chrome multi-pass warmup render loop
+      let dataUrl = '';
+      for (let i = 0; i < 3; i++) {
+        dataUrl = await toPng(receiptRef.current, {
+          quality: 0.95,
+          pixelRatio: 2,
+          backgroundColor: '#ffffff',
+          skipFonts: true,
+          cacheBust: true,
+          style: {
+            transform: 'none',
+          }
+        });
+        if (i < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+      }
 
       const link = document.createElement('a');
       const cleanFileName = `Kuitansi_Insidentil_${resident.name.replace(/\s+/g, '_')}_${receiptNumber}.png`;
@@ -118,26 +115,23 @@ export const IncidentalReceiptModal: React.FC<IncidentalReceiptModalProps> = ({
     try {
       setIsDownloading(true);
 
-      // Clone node to prevent layout compression in mobile modal viewports
-      const originalNode = receiptRef.current;
-      const clonedNode = originalNode.cloneNode(true) as HTMLElement;
-      clonedNode.style.width = '650px';
-      clonedNode.style.position = 'fixed';
-      clonedNode.style.top = '-9999px';
-      clonedNode.style.left = '-9999px';
-      clonedNode.style.transform = 'none';
-      clonedNode.style.backgroundColor = '#ffffff';
-      document.body.appendChild(clonedNode);
-
-      const dataUrl = await toPng(clonedNode, {
-        quality: 0.95,
-        pixelRatio: 2,
-        backgroundColor: '#ffffff',
-        skipFonts: true,
-        cacheBust: true,
-      });
-
-      document.body.removeChild(clonedNode);
+      // Safari/iOS Chrome multi-pass warmup render loop
+      let dataUrl = '';
+      for (let i = 0; i < 3; i++) {
+        dataUrl = await toPng(receiptRef.current, {
+          quality: 0.95,
+          pixelRatio: 2,
+          backgroundColor: '#ffffff',
+          skipFonts: true,
+          cacheBust: true,
+          style: {
+            transform: 'none',
+          }
+        });
+        if (i < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+      }
       
       const resBlob = await fetch(dataUrl);
       const blob = await resBlob.blob();
@@ -218,8 +212,11 @@ export const IncidentalReceiptModal: React.FC<IncidentalReceiptModalProps> = ({
         </div>
 
         {/* Printable Receipt Body */}
-        <div ref={receiptRef} className="p-8 bg-amber-50/30 print:p-6 print:bg-white text-slate-800">
-          <div className="border-4 border-double border-slate-700 p-6 rounded-lg bg-white shadow-xs relative overflow-hidden">
+        <div className="overflow-x-auto bg-amber-50/30 p-4 sm:p-6 flex justify-start sm:justify-center text-slate-800 print:bg-white print:p-0">
+          <div 
+            ref={receiptRef} 
+            className="w-[620px] shrink-0 border-4 border-double border-slate-700 p-6 rounded-lg bg-white shadow-xs relative overflow-hidden"
+          >
             {/* Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.04] select-none rotate-[-25deg]">
               <span className="text-8xl font-black text-slate-900">LUNAS</span>

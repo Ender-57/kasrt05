@@ -1,3 +1,49 @@
+/**
+ * Mendapatkan tanggal hari ini dalam format YYYY-MM-DD menggunakan Zona Waktu Asia/Jakarta (WIB, UTC+7)
+ */
+export const getTodayJakarta = (): string => {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    return formatter.format(new Date());
+  } catch {
+    const now = new Date();
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    const wibDate = new Date(utcMs + 7 * 3600000);
+    const y = wibDate.getFullYear();
+    const m = String(wibDate.getMonth() + 1).padStart(2, '0');
+    const d = String(wibDate.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+};
+
+/**
+ * Format tanggal + waktu dengan locale id-ID dan Zona Waktu Asia/Jakarta (WIB)
+ */
+export const formatDateTimeJakarta = (date: Date = new Date(), options?: Intl.DateTimeFormatOptions): string => {
+  return date.toLocaleString('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    dateStyle: 'long',
+    timeStyle: 'short',
+    ...options,
+  });
+};
+
+/**
+ * Format tanggal saja dengan locale id-ID dan Zona Waktu Asia/Jakarta (WIB)
+ */
+export const formatDateJakarta = (date: Date = new Date(), options?: Intl.DateTimeFormatOptions): string => {
+  return date.toLocaleDateString('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    dateStyle: 'long',
+    ...options,
+  });
+};
+
 export const formatRupiah = (val: number): string => {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -123,8 +169,8 @@ export const getOfficerForDate = (
 ): OfficerLookupResult => {
   const officers = profile.officers || [];
   
-  // Standarkan tanggal target YYYY-MM-DD
-  const targetDate = targetDateStr ? targetDateStr.slice(0, 10) : new Date().toISOString().slice(0, 10);
+  // Standarkan tanggal target YYYY-MM-DD (WIB / Jakarta)
+  const targetDate = targetDateStr ? targetDateStr.slice(0, 10) : getTodayJakarta();
   const targetYearMonth = targetDate.slice(0, 7); // YYYY-MM
 
   // Normalisasi nama role

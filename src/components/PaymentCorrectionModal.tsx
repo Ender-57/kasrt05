@@ -8,7 +8,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { Resident, MonthKey, MONTHS, RTProfile } from '../types';
-import { formatRupiah, formatDateIndo } from '../utils/formatters';
+import { formatRupiah, formatDateIndo, getTodayJakarta } from '../utils/formatters';
 
 interface PaymentCorrectionModalProps {
   isOpen: boolean;
@@ -63,7 +63,7 @@ export const PaymentCorrectionModal: React.FC<PaymentCorrectionModalProps> = ({
     currentPayment?.paymentMethod || 'Tunai'
   );
   const [editPaidAt, setEditPaidAt] = useState<string>(
-    currentPayment?.paidAt || new Date().toISOString().split('T')[0]
+    currentPayment?.paidAt || getTodayJakarta()
   );
   const [correctionReason, setCorrectionReason] = useState('Salah ketik nominal pembayaran');
   const [customReasonText, setCustomReasonText] = useState('');
@@ -89,7 +89,7 @@ export const PaymentCorrectionModal: React.FC<PaymentCorrectionModalProps> = ({
     if (p) {
       setEditAmount(p.amount);
       setEditMethod(p.paymentMethod || 'Tunai');
-      setEditPaidAt(p.paidAt || new Date().toISOString().split('T')[0]);
+      setEditPaidAt(p.paidAt || getTodayJakarta());
     }
   }, [selectedMonth, resident]);
 

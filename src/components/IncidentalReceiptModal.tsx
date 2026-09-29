@@ -67,6 +67,8 @@ export const IncidentalReceiptModal: React.FC<IncidentalReceiptModalProps> = ({
           cacheBust: true,
           style: {
             transform: 'none',
+            width: '600px',
+            height: '800px',
           }
         });
         if (i < 2) {
@@ -126,6 +128,8 @@ export const IncidentalReceiptModal: React.FC<IncidentalReceiptModalProps> = ({
           cacheBust: true,
           style: {
             transform: 'none',
+            width: '600px',
+            height: '800px',
           }
         });
         if (i < 2) {
@@ -215,139 +219,143 @@ export const IncidentalReceiptModal: React.FC<IncidentalReceiptModalProps> = ({
         <div className="overflow-x-auto bg-amber-50/30 p-4 sm:p-6 flex justify-start sm:justify-center text-slate-800 print:bg-white print:p-0">
           <div 
             ref={receiptRef} 
-            className="w-[620px] shrink-0 border-4 border-double border-slate-700 p-6 rounded-lg bg-white shadow-xs relative overflow-hidden"
+            className="w-[600px] h-[800px] shrink-0 border-4 border-double border-slate-700 p-6 rounded-lg bg-white shadow-xs relative overflow-hidden flex flex-col justify-between"
+            style={{ width: '600px', height: '800px', aspectRatio: '3/4' }}
           >
             {/* Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.04] select-none rotate-[-25deg]">
               <span className="text-8xl font-black text-slate-900">LUNAS</span>
             </div>
 
-            {/* Receipt Header */}
-            <div className="border-b-2 border-slate-800 pb-4 mb-5 text-center">
-              <div className="flex items-center justify-center gap-3.5 mb-1.5">
-                <img
-                  src={logoBase64 || "/logo-rt05.png"}
-                  crossOrigin="anonymous"
-                  alt="Logo RT 05"
-                  className="w-14 h-14 object-contain rounded-full border border-slate-300 shadow-2xs shrink-0"
-                  onError={(e) => {
-                    // Fallback to RT Logo styled element if image fails
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
-                <div className="text-left">
-                  <h2 className="text-lg font-bold tracking-tight text-slate-900 uppercase leading-tight">
-                    {profile.name}
-                  </h2>
-                  <p className="text-xs text-slate-500 leading-tight mt-0.5">
-                    RT {profile.rtNumber} / RW {profile.rwNumber}, Desa {profile.subdistrict}, Kec. {profile.district}, {profile.city}
+            {/* Top section */}
+            <div className="flex-1 flex flex-col justify-start">
+              {/* Receipt Header */}
+              <div className="border-b-2 border-slate-800 pb-3 mb-3 text-center">
+                <div className="flex items-center justify-center gap-3 mb-1">
+                  <img
+                    src={logoBase64 || "/logo-rt05.png"}
+                    crossOrigin="anonymous"
+                    alt="Logo RT 05"
+                    className="w-13 h-13 object-contain rounded-full border border-slate-300 shadow-2xs shrink-0"
+                    onError={(e) => {
+                      // Fallback to RT Logo styled element if image fails
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                  <div className="text-left">
+                    <h2 className="text-base font-bold tracking-tight text-slate-900 uppercase leading-tight">
+                      {profile.name}
+                    </h2>
+                    <p className="text-[11px] text-slate-500 leading-tight mt-0.5">
+                      RT {profile.rtNumber} / RW {profile.rwNumber}, Desa {profile.subdistrict}, Kec. {profile.district}, {profile.city}
+                    </p>
+                  </div>
+                </div>
+                <div className="inline-block mt-1 px-3 py-0.5 bg-slate-900 text-white text-[11px] font-semibold uppercase tracking-wider rounded">
+                  KUITANSI PEMBAYARAN SWADAYA WARGA
+                </div>
+              </div>
+
+              {/* Receipt Metadata */}
+              <div className="flex justify-between items-center text-xs mb-3 text-slate-600 bg-slate-50 px-3 py-2 rounded border border-slate-200">
+                <div>
+                  <span className="font-semibold text-slate-700">Nomor Kuitansi:</span>{' '}
+                  <span className="font-mono font-bold text-slate-900">{receiptNumber}</span>
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-700">Tanggal Bayar:</span>{' '}
+                  <span>{formatDateIndo(paymentDate)}</span>
+                </div>
+              </div>
+
+              {/* Receipt Content Table */}
+              <div className="space-y-2 text-xs">
+                <div className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-100">
+                  <div className="col-span-4 text-slate-500 font-medium">Telah Diterima Dari</div>
+                  <div className="col-span-8 font-semibold text-slate-900 flex items-center gap-2">
+                    <span>{resident.name}</span>
+                    <span className="px-2 py-0.5 text-[11px] bg-slate-100 text-slate-700 rounded-full font-mono">
+                      Rumah No. {resident.houseNo}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-100">
+                  <div className="col-span-4 text-slate-500 font-medium">Jumlah Pembayaran</div>
+                  <div className="col-span-8">
+                    <span className="text-base font-bold text-emerald-700 font-mono">
+                      {formatRupiah(program.amount)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-12 gap-2 py-2 border-b border-slate-100 bg-amber-50/50 px-2.5 rounded">
+                  <div className="col-span-4 text-slate-600 font-medium">Terbilang</div>
+                  <div className="col-span-8 italic font-serif text-slate-800 text-xs leading-relaxed">
+                    "{terbilang(program.amount)} Rupiah"
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-100">
+                  <div className="col-span-4 text-slate-500 font-medium">Untuk Program Iuran</div>
+                  <div className="col-span-8">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                      ✓ {program.title}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-12 gap-2 py-1.5">
+                  <div className="col-span-4 text-slate-500 font-medium">Metode Pembayaran</div>
+                  <div className="col-span-8 text-slate-800 font-semibold">
+                    {payment.paymentMethod || 'Tunai'}
+                  </div>
+                </div>
+
+                {payment.note && (
+                  <div className="grid grid-cols-12 gap-2 py-1.5 border-t border-slate-100">
+                    <div className="col-span-4 text-slate-500 font-medium">Keterangan</div>
+                    <div className="col-span-8 italic text-slate-600 text-xs">
+                      "{payment.note}"
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom section: Signature & Footer */}
+            <div className="mt-auto pt-4 border-t border-slate-200">
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div>
+                  <p className="text-xs text-slate-500 mb-14">Warga Pembayar,</p>
+                  <p className="text-xs font-semibold text-slate-800 border-b border-slate-400 inline-block px-4 pb-0.5">
+                    {resident.name}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-slate-500 mb-2">
+                    {profile.city}, {formatDateIndo(paymentDate)}
+                  </p>
+                  <p className="text-xs text-slate-500 mb-12">Bendahara Pengurus RT,</p>
+
+                  <p className="text-xs font-semibold text-slate-800 border-b border-slate-400 inline-block px-4 pb-0.5">
+                    {treasurerOfficer.name}
                   </p>
                 </div>
               </div>
-              <div className="inline-block mt-2 px-3 py-1 bg-slate-900 text-white text-xs font-semibold uppercase tracking-wider rounded">
-                KUITANSI PEMBAYARAN SWADAYA WARGA
+
+              {/* Footer note */}
+              <div className="mt-4 pt-2 border-t border-slate-100 text-[10px] text-slate-400 text-center">
+                Bukti sah kas transaksi lingkungan RT. Dicatat secara transparan di Aplikasi Buku Kas RT. (Ukuran Rasio 3:4)
               </div>
-            </div>
-
-            {/* Receipt Metadata */}
-            <div className="flex justify-between items-center text-xs mb-4 text-slate-600 bg-slate-50 p-2.5 rounded border border-slate-200">
-              <div>
-                <span className="font-semibold text-slate-700">Nomor Kuitansi:</span>{' '}
-                <span className="font-mono font-bold text-slate-900">{receiptNumber}</span>
-              </div>
-              <div>
-                <span className="font-semibold text-slate-700">Tanggal Bayar:</span>{' '}
-                <span>{formatDateIndo(paymentDate)}</span>
-              </div>
-            </div>
-
-            {/* Receipt Content Table */}
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-100">
-                <div className="col-span-4 text-slate-500 font-medium">Telah Diterima Dari</div>
-                <div className="col-span-8 font-semibold text-slate-900 flex items-center gap-2">
-                  <span>{resident.name}</span>
-                  <span className="px-2 py-0.5 text-xs bg-slate-100 text-slate-700 rounded-full font-mono">
-                    Rumah No. {resident.houseNo}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-100">
-                <div className="col-span-4 text-slate-500 font-medium">Jumlah Pembayaran</div>
-                <div className="col-span-8">
-                  <span className="text-base font-bold text-emerald-700 font-mono">
-                    {formatRupiah(program.amount)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-100 bg-amber-50/50 p-2 rounded">
-                <div className="col-span-4 text-slate-600 font-medium">Terbilang</div>
-                <div className="col-span-8 italic font-serif text-slate-800 text-xs leading-relaxed">
-                  "{terbilang(program.amount)} Rupiah"
-                </div>
-              </div>
-
-              <div className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-100">
-                <div className="col-span-4 text-slate-500 font-medium">Untuk Program Iuran</div>
-                <div className="col-span-8">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
-                    ✓ {program.title}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-12 gap-2 py-1.5">
-                <div className="col-span-4 text-slate-500 font-medium">Metode Pembayaran</div>
-                <div className="col-span-8 text-slate-800 font-semibold">
-                  {payment.paymentMethod || 'Tunai'}
-                </div>
-              </div>
-
-              {payment.note && (
-                <div className="grid grid-cols-12 gap-2 py-1.5 border-t border-slate-100">
-                  <div className="col-span-4 text-slate-500 font-medium">Keterangan</div>
-                  <div className="col-span-8 italic text-slate-600 text-xs">
-                    "{payment.note}"
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Signature & Stamp Section */}
-            <div className="mt-8 pt-4 border-t border-slate-200 grid grid-cols-2 gap-4 text-center">
-              <div>
-                <p className="text-xs text-slate-500 mb-12">Warga Pembayar,</p>
-                <p className="text-xs font-semibold text-slate-800 border-b border-slate-400 inline-block px-4 pb-0.5">
-                  {resident.name}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs text-slate-500 mb-2">
-                  {profile.city}, {formatDateIndo(paymentDate)}
-                </p>
-                <p className="text-xs text-slate-500 mb-10">Bendahara Pengurus RT,</p>
-
-                <p className="text-xs font-semibold text-slate-800 border-b border-slate-400 inline-block px-4 pb-0.5">
-                  {treasurerOfficer.name}
-                </p>
-              </div>
-            </div>
-
-            {/* Footer note */}
-            <div className="mt-6 pt-2 border-t border-slate-100 text-[10px] text-slate-400 text-center">
-              Bukti sah kas transaksi lingkungan RT. Dicatat secara transparan di Aplikasi Buku Kas RT.
             </div>
           </div>
         </div>
 
         {/* Modal Bottom Actions */}
         <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
-          <div className="text-xs text-slate-500">
-            Format: Gambar resolusi tinggi PNG
-          </div>
+          
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={handleDownload}

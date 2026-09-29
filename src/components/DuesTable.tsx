@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { Resident, MonthKey, MONTHS, RTProfile, CashTransaction, IncidentalDuesProgram } from '../types';
-import { formatRupiah, formatAttachmentFileName } from '../utils/formatters';
+import { formatRupiah, formatAttachmentFileName, getTodayJakarta, formatDateTimeJakarta, formatDateJakarta } from '../utils/formatters';
 import { runSelfHealing } from '../utils/selfHealing';
 import { PaymentCorrectionModal } from './PaymentCorrectionModal';
 import { ResidentFormModal } from './ResidentFormModal';
@@ -95,15 +95,23 @@ export const DuesTable: React.FC<DuesTableProps> = ({
         const originalStyle = element.style.cssText;
         element.style.padding = '24px';
         element.style.width = '420px';
+        element.style.minHeight = '560px';
+        element.style.aspectRatio = '3/4';
         element.style.maxWidth = '100%';
         element.style.borderRadius = '16px';
         element.style.backgroundColor = '#ffffff';
+        element.style.display = 'flex';
+        element.style.flexDirection = 'column';
+        element.style.justifyContent = 'space-between';
 
         const dataUrl = await toPng(element, {
           backgroundColor: '#ffffff',
           style: {
             transform: 'scale(1)',
             borderRadius: '16px',
+            width: '420px',
+            minHeight: '560px',
+            aspectRatio: '3/4',
           },
           cacheBust: true,
         });
@@ -301,7 +309,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
       reason: string;
     }
   ) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayJakarta();
 
     const updated = residents.map((r) => {
       if (r.id !== residentId) return r;
@@ -419,7 +427,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
                     filterTab === 'KOSONG' ? 'LAPORAN REKAPITULASI - DAFTAR RUMAH KOSONG' :
                     'LAPORAN REKAPITULASI BULANAN IURAN RUTIN WARGA';
 
-    const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' });
+    const timestamp = formatDateTimeJakarta(new Date());
     const treasurerOfficer = profile.officers?.find((o) => o.role.toLowerCase().includes('bendahara'));
     const treasurerName = treasurerOfficer?.name || profile.treasurerName || 'Bendahara RT';
 
@@ -563,7 +571,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
             </div>
             
             <div class="signature-block">
-              <p style="margin: 0 0 2px 0; font-size: 10px; color: #475569;">${profile.city}, ${new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</p>
+              <p style="margin: 0 0 2px 0; font-size: 10px; color: #475569;">${profile.city}, ${formatDateJakarta(new Date())}</p>
               <p style="margin: 0 0 10px 0; font-size: 10px; color: #475569; font-weight: 600;">Bendahara Pengurus RT,</p>
               <div class="signature-space"></div>
               <p class="signature-name">${treasurerName}</p>
@@ -669,12 +677,12 @@ export const DuesTable: React.FC<DuesTableProps> = ({
     let attachmentName = undefined;
     let attachmentUrl = undefined;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayJakarta();
     
     // Generate receipt number based on input date (DDMM) and houseNo
-    const todayObj = new Date();
-    const dd = todayObj.getDate().toString().padStart(2, '0');
-    const mm = (todayObj.getMonth() + 1).toString().padStart(2, '0');
+    const [yStr, mStr, dStr] = today.split('-');
+    const dd = dStr;
+    const mm = mStr;
     const baseReceiptNo = `KW-${dd}${mm}-${selectedResident.houseNo}`;
 
     // Scan for existing payments in the system to assign a sequence suffix if paid on the same day

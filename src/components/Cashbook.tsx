@@ -33,7 +33,7 @@ import {
   MONTHS,
   MonthKey,
 } from '../types';
-import { formatRupiah, formatDateIndo, formatAttachmentFileName } from '../utils/formatters';
+import { formatRupiah, formatDateIndo, formatAttachmentFileName, getTodayJakarta, formatDateTimeJakarta, formatDateJakarta } from '../utils/formatters';
 import { uploadFileToGoogleDrive } from '../services/googleDrive';
 import { getAccessToken, googleSignIn } from '../services/auth';
 
@@ -144,7 +144,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const [formDebtPersonName, setFormDebtPersonName] = useState('');
   const [formDebtContact, setFormDebtContact] = useState('');
   const [formDebtAmount, setFormDebtAmount] = useState<number | ''>('');
-  const [formDebtDate, setFormDebtDate] = useState(new Date().toISOString().split('T')[0]);
+  const [formDebtDate, setFormDebtDate] = useState(() => getTodayJakarta());
   const [formDebtDueDate, setFormDebtDueDate] = useState('');
   const [formDebtNotes, setFormDebtNotes] = useState('');
 
@@ -152,7 +152,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const [isRepaymentModalOpen, setIsRepaymentModalOpen] = useState(false);
   const [repayingDebt, setRepayingDebt] = useState<DebtItem | null>(null);
   const [repayAmount, setRepayAmount] = useState<number | ''>('');
-  const [repayDate, setRepayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [repayDate, setRepayDate] = useState(() => getTodayJakarta());
   const [repayNote, setRepayNote] = useState('');
   const [syncRepayToCashbook, setSyncRepayToCashbook] = useState(true);
 
@@ -161,7 +161,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const [editingTx, setEditingTx] = useState<CashTransaction | null>(null);
 
   // Form Fields
-  const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
+  const [formDate, setFormDate] = useState(() => getTodayJakarta());
   const [formType, setFormType] = useState<TransactionType>('KELUAR');
   const [formCategory, setFormCategory] = useState<TransactionCategory>('Kebersihan & Sampah');
   const [formDescription, setFormDescription] = useState('');
@@ -348,7 +348,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
                         periodType === 'RENTANG_TANGGAL' ? `Rentang ${formatDateIndo(customStartDate)} s.d. ${formatDateIndo(customEndDate)}` :
                         'Semua Riwayat Transaksi';
 
-    const timestamp = new Date().toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' });
+    const timestamp = formatDateTimeJakarta(new Date());
     const treasurerOfficer = profile.officers?.find((o) => o.role.toLowerCase().includes('bendahara'));
     const treasurerName = treasurerOfficer?.name || profile.treasurerName || 'Bendahara RT';
     const chairpersonOfficer = profile.officers?.find((o) => o.role.toLowerCase().includes('ketua'));
@@ -507,7 +507,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
             </div>
             
             <div class="signature-block">
-              <p style="margin: 0 0 2px 0; font-size: 10px; color: #475569;">${profile.city}, ${new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</p>
+              <p style="margin: 0 0 2px 0; font-size: 10px; color: #475569;">${profile.city}, ${formatDateJakarta(new Date())}</p>
               <p style="margin: 0 0 10px 0; font-size: 10px; color: #475569; font-weight: 600;">Bendahara Pengurus RT,</p>
               <div class="signature-space"></div>
               <p class="signature-name">${treasurerName}</p>
@@ -568,7 +568,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
       setFormDebtPersonName('');
       setFormDebtContact('');
       setFormDebtAmount('');
-      setFormDebtDate(new Date().toISOString().split('T')[0]);
+      setFormDebtDate(getTodayJakarta());
       setFormDebtDueDate('');
       setFormDebtNotes('');
     }
@@ -636,7 +636,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const handleOpenRepaymentModal = (debt: DebtItem) => {
     setRepayingDebt(debt);
     setRepayAmount(debt.remainingAmount);
-    setRepayDate(new Date().toISOString().split('T')[0]);
+    setRepayDate(getTodayJakarta());
     setRepayNote(`Pelunasan / cicilan ${debt.type === 'PIUTANG' ? 'piutang' : 'utang'} ${debt.personName}`);
     setSyncRepayToCashbook(true);
     setIsRepaymentModalOpen(true);
@@ -697,7 +697,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
       setFormReceiptNumber(tx.receiptNumber || '');
     } else {
       setEditingTx(null);
-      setFormDate(new Date().toISOString().split('T')[0]);
+      setFormDate(getTodayJakarta());
       setFormType('KELUAR');
       setFormCategory('Kebersihan & Sampah');
       setFormDescription('');

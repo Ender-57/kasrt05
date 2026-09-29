@@ -15,7 +15,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { Resident, IncidentalDuesProgram, IncidentalDuesPayment, RTProfile, CashTransaction } from '../types';
-import { formatRupiah, formatDateIndo } from '../utils/formatters';
+import { formatRupiah, formatDateIndo, getTodayJakarta } from '../utils/formatters';
 import { IncidentalReceiptModal } from './IncidentalReceiptModal';
 import { FileText, Share2 } from 'lucide-react';
 
@@ -46,7 +46,7 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
   // Form states for Create Program
   const [programTitle, setProgramTitle] = useState('');
   const [programAmount, setProgramAmount] = useState<number>(50000);
-  const [programDate, setProgramDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [programDate, setProgramDate] = useState(() => getTodayJakarta());
   const [programDesc, setProgramDesc] = useState('');
 
   // Search & Filter inside Manage Modal
@@ -149,7 +149,7 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
         ...selectedProgram.payments,
         [residentId]: {
           paid: true,
-          paidAt: new Date().toISOString().slice(0, 10),
+          paidAt: getTodayJakarta(),
           paymentMethod: payMethod,
           note: payNote.trim() || undefined,
           receiptNo: `KW-INS-${Date.now().toString().slice(-6)}`,
@@ -165,7 +165,7 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
     // Optional Cashbook sync
     if (syncToCashbook) {
       onAddTransaction({
-        date: new Date().toISOString().slice(0, 10),
+        date: getTodayJakarta(),
         type: 'MASUK',
         category: 'Donasi / Swadaya',
         description: `Iuran ${selectedProgram.title} No. ${houseNo} (${residentName})`,
@@ -235,7 +235,7 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
             Iuran Insidentil & Swadaya Warga
           </h2>
           <p className="text-xs text-slate-500 mt-1 max-w-xl">
-            Kelola penggalangan iuran non-rutin bersasaran tunggal seperti program gotong-royong, pengerukan saluran air, fogging, perbaikan fasilitas RT, maupun perayaan HUT RI.
+            Kelola penggalangan iuran non-rutin bersasaran tunggal seperti program gotong-royong, pengerukan saluran air, fogging, perbaikan fasilitas RT, perayaan HUT RI dan program lainnya.
           </p>
         </div>
         {isAdmin && (

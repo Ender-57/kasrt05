@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { RTProfile, Resident, CashTransaction, CommitteeOfficer } from '../types';
 import { INITIAL_RESIDENTS, INITIAL_TRANSACTIONS, INITIAL_RT_PROFILE } from '../data/initialData';
-import { formatDateIndo } from '../utils/formatters';
+import { formatDateIndo, getTodayJakarta } from '../utils/formatters';
 import { resolveAdminPin } from '../utils/crypto';
 
 interface SettingsViewProps {
@@ -279,7 +279,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `backup-kas-rt-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `backup-kas-rt-${getTodayJakarta()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -718,7 +718,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     const isRoleTreasurer = off.role.toLowerCase().includes('bendahara');
                     const isRoleChair = off.role.toLowerCase().includes('ketua');
                     const isRoleSecretary = off.role.toLowerCase().includes('sekretaris');
-                    const isActive = !off.endPeriod || off.endPeriod >= new Date().toISOString().slice(0, 10);
+                    const isActive = !off.endPeriod || off.endPeriod >= getTodayJakarta();
 
                     return (
                       <tr key={off.id} className="hover:bg-slate-50 transition-colors">

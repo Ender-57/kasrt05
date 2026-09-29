@@ -54,7 +54,7 @@ import {
   MonthKey,
   DebtItem,
 } from '../types';
-import { formatRupiah, formatDateIndo, formatPercent, getOfficerForDate } from '../utils/formatters';
+import { formatRupiah, formatDateIndo, formatPercent, getOfficerForDate, getTodayJakarta } from '../utils/formatters';
 
 interface MonthlyReportProps {
   residents: Resident[];
@@ -609,7 +609,7 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
     // Tentukan tanggal acuan untuk tanda tangan laporan (akhir periode atau hari ini)
     const reportDateStr = periodType === 'BULANAN'
       ? `${selectedYear}-${(MONTHS.indexOf(selectedMonth) + 1).toString().padStart(2, '0')}-28`
-      : new Date().toISOString().slice(0, 10);
+      : getTodayJakarta();
 
     const chairOfficer = getOfficerForDate(profile, 'Ketua RT', reportDateStr);
     const treasurerOfficer = getOfficerForDate(profile, 'Bendahara', reportDateStr);
@@ -1010,7 +1010,7 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
               <span class="sig-name">${chairOfficer.name || profile.chairpersonName || 'Ketua RT'}</span>
             </td>
             <td>
-              ${profile.subdistrict || 'Satriajaya'}, ${formatDateIndo(new Date().toISOString().split('T')[0])}<br>
+              ${profile.subdistrict || 'Satriajaya'}, ${formatDateIndo(getTodayJakarta())}<br>
               <strong>Bendahara Pengurus RT</strong>
               <div class="sig-space"></div>
               <span class="sig-name">${treasurerOfficer.name || profile.treasurerName || 'Bendahara RT'}</span>
@@ -2393,7 +2393,7 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
                 {(() => {
                   const reportDateStr = periodType === 'BULANAN'
                     ? `${selectedYear}-${(MONTHS.indexOf(selectedMonth) + 1).toString().padStart(2, '0')}-28`
-                    : new Date().toISOString().slice(0, 10);
+                    : getTodayJakarta();
                   const previewChair = getOfficerForDate(profile, 'Ketua RT', reportDateStr);
                   const previewTreasurer = getOfficerForDate(profile, 'Bendahara', reportDateStr);
 
@@ -2414,7 +2414,7 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
 
                       <div>
                         <p className="text-slate-600 mb-14">
-                          {profile.subdistrict || 'Satriajaya'}, {formatDateIndo(new Date().toISOString().split('T')[0])}<br />
+                          {profile.subdistrict || 'Satriajaya'}, {formatDateIndo(getTodayJakarta())}<br />
                           <strong className="text-slate-900">Bendahara Pengurus RT</strong>
                         </p>
                         <p className="font-bold text-slate-900 border-b-2 border-slate-800 inline-block px-6 pb-0.5">

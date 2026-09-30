@@ -55,6 +55,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [pinInput, setPinInput] = useState(() => resolveAdminPin(profile.adminPin));
   const [showPin, setShowPin] = useState(false);
+  const [showSecPin, setShowSecPin] = useState(false);
+  const [secPinInput, setSecPinInput] = useState(() => 
+    profile.secretaryPin ? resolveAdminPin(profile.secretaryPin) : '654321'
+  );
 
   // Backup Restore Modal & Notification States (No window.alert/confirm)
   const [restoreModalData, setRestoreModalData] = useState<{
@@ -76,6 +80,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       officers: profile.officers !== undefined ? profile.officers : INITIAL_RT_PROFILE.officers,
     });
     setPinInput(resolveAdminPin(profile.adminPin));
+    setSecPinInput(profile.secretaryPin ? resolveAdminPin(profile.secretaryPin) : '654321');
   }, [profile]);
 
   // New Officer form state
@@ -253,10 +258,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     
     const trimmed = pinInput.trim();
     const finalPin = trimmed !== '' ? resolveAdminPin(trimmed) : (resolveAdminPin(profile.adminPin) || '123456');
+    const trimmedSec = secPinInput.trim();
+    const finalSecPin = trimmedSec !== '' ? resolveAdminPin(trimmedSec) : (resolveAdminPin(profile.secretaryPin) || '654321');
 
     const updatedProfile = {
       ...form,
       adminPin: finalPin,
+      secretaryPin: finalSecPin,
+    };
+
+    onUpdateProfile(updatedProfile);
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 3000);
+  };
+
+  const handleSaveUserPins = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    const trimmed = pinInput.trim();
+    const finalPin = trimmed !== '' ? resolveAdminPin(trimmed) : (resolveAdminPin(profile.adminPin) || '123456');
+    const trimmedSec = secPinInput.trim();
+    const finalSecPin = trimmedSec !== '' ? resolveAdminPin(trimmedSec) : (resolveAdminPin(profile.secretaryPin) || '654321');
+
+    const updatedProfile = {
+      ...form,
+      adminPin: finalPin,
+      secretaryPin: finalSecPin,
     };
 
     onUpdateProfile(updatedProfile);
@@ -545,6 +572,107 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Pengelolaan User & Hak Akses (PIN) */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Shield className="w-5 h-5 text-emerald-400" />
+            <div>
+              <h3 className="font-bold text-sm">Pengelolaan User & Hak Akses (PIN)</h3>
+              <p className="text-xs text-slate-400">
+                Atur PIN akses pengurus untuk Admin/Bendahara dan Sekretaris RT
+              </p>
+            </div>
+          </div>
+          {savedSuccess && (
+            <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold bg-emerald-950 px-2.5 py-1 rounded-lg">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Tersimpan
+            </span>
+          )}
+        </div>
+
+        <div className="p-6 space-y-4 text-xs">
+          <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-900">
+            <Info className="w-4.5 h-4.5 text-emerald-700 shrink-0 mt-0.5" />
+            <div>
+              <strong>Panduan Hak Akses User Pengurus RT:</strong>
+              <ul className="list-disc list-inside mt-1 space-y-1 text-emerald-950/90 font-medium">
+                <li><strong>Admin / Bendahara (PIN Utama):</strong> Memiliki kontrol penuh atas seluruh sistem (mencatat iuran bulanan/swadaya, mutasi buku kas, pengelolaan hutang-piutang, reset data, serta konfigurasi PIN).</li>
+                <li><strong>Sekretaris (PIN Terbatas):</strong> Memiliki hak akses khusus untuk melakukan input dan edit data kependudukan warga di menu <strong>"Data Warga"</strong>. Tab lain seperti Iuran, Kas, dan Pengaturan bersifat baca-saja (read-only) demi menjaga akuntabilitas keuangan.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* PIN Admin / Bendahara */}
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-800 text-xs sm:text-sm">1. Admin & Bendahara PIN (Akses Penuh)</span>
+                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold text-[9px] uppercase">Full Access</span>
+              </div>
+              <p className="text-[11px] text-slate-500">PIN utama untuk mengelola iuran, buku kas, laporan keuangan, dan seluruh pengaturan sistem.</p>
+              
+              <div className="relative flex items-center pt-1.5">
+                <input
+                  type={showPin ? 'text' : 'password'}
+                  maxLength={10}
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value)}
+                  placeholder="Ketik 6 digit PIN Admin..."
+                  className="w-full pl-3 pr-10 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono text-center tracking-widest font-bold text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPin(!showPin)}
+                  className="absolute right-2.5 top-[18px] flex items-center justify-center p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer focus:outline-hidden"
+                >
+                  {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* PIN Sekretaris */}
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-800 text-xs sm:text-sm">2. Sekretaris PIN (Akses Edit Data Warga)</span>
+                <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-bold text-[9px] uppercase">Warga Only</span>
+              </div>
+              <p className="text-[11px] text-slate-500">PIN khusus untuk Sekretaris RT. Hanya diberikan wewenang untuk melakukan input dan edit data kependudukan warga.</p>
+              
+              <div className="relative flex items-center pt-1.5">
+                <input
+                  type={showSecPin ? 'text' : 'password'}
+                  maxLength={10}
+                  value={secPinInput}
+                  onChange={(e) => setSecPinInput(e.target.value)}
+                  placeholder="Ketik 6 digit PIN Sekretaris..."
+                  className="w-full pl-3 pr-10 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono text-center tracking-widest font-bold text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSecPin(!showSecPin)}
+                  className="absolute right-2.5 top-[18px] flex items-center justify-center p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer focus:outline-hidden"
+                >
+                  {showSecPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={handleSaveUserPins}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
+            >
+              <Save className="w-4 h-4" />
+              <span>Simpan Konfigurasi PIN Pengurus</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Susunan Pengurus & Periode Menjabat Card */}

@@ -11,6 +11,7 @@ export const INITIAL_RT_PROFILE: RTProfile = {
   treasurerName: 'Bpk. Hendra Cahyono',
   secretaryName: 'Bpk. Rian Amirul Hakim',
   adminPin: '123456', // default admin PIN
+  secretaryPin: '654321', // default secretary PIN
   officers: [
     {
       id: 'off-1',

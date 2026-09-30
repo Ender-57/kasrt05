@@ -124,6 +124,7 @@ export interface RTProfile {
   treasurerName: string; // Bendahara RT
   secretaryName: string; // Sekretaris RT
   adminPin: string; // Quick committee passcode
+  secretaryPin?: string; // Quick secretary passcode
   officers?: CommitteeOfficer[]; // Daftar Susunan Pengurus & Riwayat Masa Jabatan
   programKerjaList?: ProgramKerjaItem[];
   bankName?: string;

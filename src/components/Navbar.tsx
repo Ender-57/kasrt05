@@ -21,6 +21,7 @@ interface NavbarProps {
   activeTab: 'dues' | 'residents' | 'cashbook' | 'report' | 'officers' | 'settings';
   setActiveTab: (tab: 'dues' | 'residents' | 'cashbook' | 'report' | 'officers' | 'settings') => void;
   isAdmin: boolean;
+  isSecretary: boolean;
   onRequestAdmin: () => void;
   onExitAdmin: () => void;
   profile: RTProfile;
@@ -34,6 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   isAdmin,
+  isSecretary,
   onRequestAdmin,
   onExitAdmin,
   profile,
@@ -52,17 +54,17 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Top Banner indicating Role Mode */}
       <div
         className={`px-3 sm:px-4 py-1 text-xs font-medium transition-colors ${
-          isAdmin ? 'bg-emerald-800 text-white' : 'bg-slate-800 text-slate-200'
+          isAdmin || isSecretary ? 'bg-emerald-800 text-white' : 'bg-slate-800 text-slate-200'
         }`}
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 truncate">
-            {isAdmin ? (
+            {isAdmin || isSecretary ? (
               <span className="flex items-center gap-1.5 truncate">
                 <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse shrink-0"></span>
                 <span className="truncate font-medium">
                   <span className="hidden sm:inline">Selamat Datang </span>
-                  Pengurus RT {profile.rtNumber} / RW {profile.rwNumber} Desa {profile.subdistrict}
+                  Pengurus RT {profile.rtNumber} ({isAdmin ? 'Admin/Bendahara' : 'Sekretaris'}) / RW {profile.rwNumber} Desa {profile.subdistrict}
                 </span>
               </span>
             ) : (
@@ -77,7 +79,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {isAdmin ? (
+            {isAdmin || isSecretary ? (
               <button
                 onClick={onExitAdmin}
                 className="inline-flex items-center gap-1 text-[11px] bg-emerald-900/90 hover:bg-emerald-950 px-2.5 py-0.5 rounded cursor-pointer transition-colors font-medium border border-emerald-600/40"

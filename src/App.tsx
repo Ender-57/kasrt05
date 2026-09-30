@@ -54,6 +54,7 @@ export default function App() {
 
   // Role: Viewer (Warga) vs Admin (Pengurus RT)
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSecretary, setIsSecretary] = useState(false);
   const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
   const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
 
@@ -425,8 +426,12 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         isAdmin={isAdmin}
+        isSecretary={isSecretary}
         onRequestAdmin={() => setIsAdminAuthModalOpen(true)}
-        onExitAdmin={() => setIsAdmin(false)}
+        onExitAdmin={() => {
+          setIsAdmin(false);
+          setIsSecretary(false);
+        }}
         profile={profile}
         userEmail={userEmail}
         onGoogleSignIn={handleGoogleSignIn}
@@ -467,7 +472,7 @@ export default function App() {
         {activeTab === 'residents' && (
           <ResidentsDirectory
             residents={residents}
-            isAdmin={isAdmin}
+            isAdmin={isAdmin || isSecretary}
             profile={profile}
             onUpdateResidents={handleUpdateResidents}
             onNavigateToDues={() => setActiveTab('dues')}
@@ -557,7 +562,15 @@ export default function App() {
       <AdminAuthModal
         isOpen={isAdminAuthModalOpen}
         onClose={() => setIsAdminAuthModalOpen(false)}
-        onSuccess={() => setIsAdmin(true)}
+        onSuccess={(role) => {
+          if (role === 'admin') {
+            setIsAdmin(true);
+            setIsSecretary(false);
+          } else if (role === 'secretary') {
+            setIsAdmin(false);
+            setIsSecretary(true);
+          }
+        }}
         profile={profile}
         onGoogleSignIn={handleGoogleSignIn}
       />

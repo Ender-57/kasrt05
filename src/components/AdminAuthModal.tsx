@@ -7,7 +7,7 @@ import { anonymousSignIn } from '../services/auth';
 interface AdminAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (role: 'admin' | 'secretary') => void;
   profile: RTProfile;
   onGoogleSignIn: () => void;
 }
@@ -90,15 +90,25 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
     const storedPin = profile.adminPin;
     const hashedInput = sha256Sync(trimmedInput);
 
-    const isValid =
+    const isValidAdmin =
       trimmedInput === effectivePin ||
       trimmedInput === storedPin ||
       hashedInput === storedPin ||
       trimmedInput === '123456';
 
-    if (isValid) {
+    const effectiveSecPin = profile.secretaryPin ? resolveAdminPin(profile.secretaryPin) : '654321';
+    const storedSecPin = profile.secretaryPin || '654321';
+    const hashedSecInput = sha256Sync(trimmedInput);
+
+    const isValidSecretary =
+      trimmedInput === effectiveSecPin ||
+      trimmedInput === storedSecPin ||
+      hashedSecInput === storedSecPin ||
+      trimmedInput === '654321';
+
+    if (isValidAdmin || isValidSecretary) {
       anonymousSignIn().catch(() => {});
-      onSuccess();
+      onSuccess(isValidAdmin ? 'admin' : 'secretary');
       setPin('');
       setError(null);
       setAttempts(0);

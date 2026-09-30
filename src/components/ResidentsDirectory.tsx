@@ -22,7 +22,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Resident, RTProfile } from '../types';
-import { formatRupiah, getCleanRtRwTitle, getCleanProfileName } from '../utils/formatters';
+import { formatRupiah, getCleanRtRwTitle, getCleanProfileName, formatDateTimeJakarta, formatDateJakarta, formatDateIndo } from '../utils/formatters';
 import { ResidentFormModal } from './ResidentFormModal';
 
 interface ResidentsDirectoryProps {
@@ -209,7 +209,227 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
   };
 
   const handlePrintCensus = () => {
-    window.print();
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Gagal membuka jendela cetak. Pastikan browser Anda tidak memblokir pop-up.');
+      return;
+    }
+
+    const formatMaskedForPrint = (idStr: string | undefined, type: 'KTP' | 'KK') => {
+      if (!idStr || idStr.trim() === '-' || idStr.trim() === '') return '-';
+      if (isAdmin) return idStr;
+      const clean = idStr.trim();
+      return clean.length >= 10
+        ? `${clean.slice(0, 4)}********${clean.slice(-2)}`
+        : clean.length >= 6
+        ? `${clean.slice(0, 2)}******${clean.slice(-2)}`
+        : '••••••••••••';
+    };
+
+    const itemsToPrint = filteredResidents;
+
+    const rows = itemsToPrint.map((r) => {
+      const occupantsCount = r.isVacant ? 0 : (r.totalOccupants || (
+        1 + (r.spouseName ? 1 : 0) + (r.children?.length || 0) + (r.otherFamilyMembers?.length || 0)
+      ));
+      
+      const familyDetailList = [];
+      if (r.spouseName) familyDetailList.push(`Istri/Suami: ${r.spouseName}`);
+      if (r.children && r.children.length > 0) {
+        familyDetailList.push(`Anak: ${r.children.join(', ')}`);
+      }
+      if (r.otherFamilyMembers && r.otherFamilyMembers.length > 0) {
+        familyDetailList.push(`Lainnya: ${r.otherFamilyMembers.join(', ')}`);
+      }
+      const familyDetailText = familyDetailList.length > 0 ? familyDetailList.join('<br/>') : '-';
+      const statusText = r.isVacant ? '<span style="color: #94a3b8; font-style: italic;">Kosong</span>' : (r.houseStatus || 'Milik Sendiri');
+
+      return `
+        <tr>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; text-align: center; font-weight: bold; font-family: monospace;">${r.houseNo}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; font-weight: bold;">${r.isVacant ? '<em>RUMAH KOSONG</em>' : r.name}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; text-align: center;">${statusText}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; font-family: monospace; text-align: center;">${r.isVacant ? '-' : formatMaskedForPrint(r.nik, 'KTP')}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; font-family: monospace; text-align: center;">${r.isVacant ? '-' : formatMaskedForPrint(r.kkNumber, 'KK')}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 9.5px; line-height: 1.3;">${r.isVacant ? '-' : familyDetailText}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; text-align: center; font-weight: bold; font-family: monospace;">${r.isVacant ? '-' : occupantsCount} Jiwa</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; font-family: monospace; text-align: center;">${r.phone || '-'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const timestamp = formatDateTimeJakarta(new Date());
+    const chairpersonOfficer = profile.officers?.find((o) => o.role.toLowerCase().includes('ketua'));
+    const chairpersonName = chairpersonOfficer?.name || profile.chairpersonName || 'Ketua RT';
+
+    const secretaryOfficer = profile.officers?.find((o) => o.role.toLowerCase().includes('sekretaris'));
+    const secretaryName = secretaryOfficer?.name || profile.secretaryName || 'Sekretaris RT';
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>DAFTAR INDUK WARGA - ${getCleanRtRwTitle(profile)}</title>
+          <style>
+            @media print {
+              @page {
+                size: A4 landscape;
+                margin: 10mm 15mm;
+              }
+              body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+            body {
+              font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+              color: #1e293b;
+              margin: 0;
+              padding: 0;
+              font-size: 10.5px;
+              background-color: #ffffff;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 15px;
+              border-bottom: 3px double #1e293b;
+              padding-bottom: 10px;
+            }
+            .header h1 {
+              margin: 0 0 2px 0;
+              font-size: 18px;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              color: #0f172a;
+            }
+            .header p {
+              margin: 0;
+              font-size: 11px;
+              color: #475569;
+              font-weight: 500;
+            }
+            .report-meta {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 12px;
+              font-size: 10px;
+              font-weight: 600;
+              color: #334155;
+              background-color: #f8fafc;
+              padding: 6px 10px;
+              border-radius: 6px;
+              border: 1px solid #e2e8f0;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            th {
+              background-color: #0f172a;
+              color: #ffffff;
+              font-weight: bold;
+              text-align: center;
+              text-transform: uppercase;
+              font-size: 9px;
+              padding: 6px;
+              border: 1px solid #475569;
+            }
+            tr:nth-child(even) {
+              background-color: #f8fafc;
+            }
+            .footer-notes {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 30px;
+              page-break-inside: avoid;
+            }
+            .signature-block {
+              text-align: center;
+              width: 220px;
+            }
+            .signature-space {
+              height: 45px;
+            }
+            .signature-name {
+              font-weight: 700;
+              border-bottom: 1.5px solid #1e293b;
+              display: inline-block;
+              padding: 0 15px;
+              margin: 0;
+              color: #0f172a;
+            }
+            .system-note {
+              text-align: center;
+              font-size: 8px;
+              color: #94a3b8;
+              margin-top: 25px;
+              border-top: 1px dashed #cbd5e1;
+              padding-top: 8px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${getCleanRtRwTitle(profile).toUpperCase()}</h1>
+            <p>Desa ${profile.subdistrict}, Kec. ${profile.district}, ${profile.city}, Jawa Barat</p>
+            <h2 style="margin: 8px 0 0 0; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: #0f172a; text-transform: uppercase;">LAPORAN DATA INDUK WARGA & SENSUS PENDUDUK</h2>
+          </div>
+          
+          <div class="report-meta">
+            <div>Total Terdaftar: <span style="color: #0284c7; font-weight: bold;">${stats.totalKK} Kepala Keluarga (KK)</span></div>
+            <div>Total Jiwa Penghuni: <span style="color: #047857; font-weight: bold;">${stats.totalOccupants} Jiwa</span></div>
+            <div>Rumah Kosong: <span style="color: #ef4444; font-weight: bold;">${stats.totalVacant} Unit</span></div>
+            <div>Tanggal Cetak: <span>${timestamp}</span></div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 50px;">NO. RMH</th>
+                <th style="width: 140px; text-align: left;">KEPALA KELUARGA</th>
+                <th style="width: 90px;">STATUS RUMAH</th>
+                <th style="width: 110px;">NIK KEPALA KELUARGA</th>
+                <th style="width: 110px;">NOMOR KARTU KELUARGA</th>
+                <th style="text-align: left;">DETAIL ANGGOTA KELUARGA (PASANGAN/ANAK/LAIN)</th>
+                <th style="width: 70px;">JML JIWA</th>
+                <th style="width: 100px;">NO. HP WARGA</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+
+          <div class="footer-notes">
+            <div class="signature-block">
+              <p style="margin: 0 0 8px 0; font-size: 10px; color: #475569;">Mengetahui,</p>
+              <p style="margin: 0 0 10px 0; font-size: 10px; color: #475569; font-weight: 600;">Ketua RT ${profile.rtNumber},</p>
+              <div class="signature-space"></div>
+              <p class="signature-name">${chairpersonName}</p>
+            </div>
+            
+            <div class="signature-block">
+              <p style="margin: 0 0 2px 0; font-size: 10px; color: #475569;">${profile.city}, ${formatDateJakarta(new Date())}</p>
+              <p style="margin: 0 0 10px 0; font-size: 10px; color: #475569; font-weight: 600;">Sekretaris Pengurus RT,</p>
+              <div class="signature-space"></div>
+              <p class="signature-name">${secretaryName}</p>
+            </div>
+          </div>
+
+          <div class="system-note">
+            Laporan kependudukan resmi RT. Dicatat secara transparan, aman, dan akuntabel di Aplikasi Buku Kas RT.
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   return (

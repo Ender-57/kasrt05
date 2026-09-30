@@ -279,7 +279,74 @@ export default function App() {
 
   const handleUpdateTransaction = async (updatedTx: CashTransaction) => {
     try {
+      // 1. Save the updated transaction in Firestore
       await saveTransaction(updatedTx);
+
+      // 2. If the transaction has a receiptNumber, check and sync dates in regular and incidental dues
+      if (updatedTx.receiptNumber) {
+        const targetReceiptNo = updatedTx.receiptNumber;
+        let residentsUpdated = false;
+
+        // Scan and update Regular Monthly Dues paidAt date
+        const newResidents = residents.map((res) => {
+          let resChanged = false;
+          const updatedPayments = { ...res.payments };
+
+          Object.keys(updatedPayments).forEach((m) => {
+            const monthKey = m as MonthKey;
+            const pay = updatedPayments[monthKey];
+            if (pay && pay.receiptNo === targetReceiptNo) {
+              if (pay.paidAt !== updatedTx.date) {
+                updatedPayments[monthKey] = {
+                  ...pay,
+                  paidAt: updatedTx.date,
+                };
+                resChanged = true;
+              }
+            }
+          });
+
+          if (resChanged) {
+            residentsUpdated = true;
+            return {
+              ...res,
+              payments: updatedPayments,
+            };
+          }
+          return res;
+        });
+
+        if (residentsUpdated) {
+          await handleUpdateResidents(newResidents);
+        }
+
+        // Scan and update Incidental Dues Programs paidAt date
+        for (const prog of incidentalPrograms) {
+          let progChanged = false;
+          const updatedPayments = { ...prog.payments };
+
+          Object.keys(updatedPayments).forEach((resId) => {
+            const pay = updatedPayments[resId];
+            if (pay && pay.receiptNo === targetReceiptNo) {
+              if (pay.paidAt !== updatedTx.date) {
+                updatedPayments[resId] = {
+                  ...pay,
+                  paidAt: updatedTx.date,
+                };
+                progChanged = true;
+              }
+            }
+          });
+
+          if (progChanged) {
+            const updatedProg = {
+              ...prog,
+              payments: updatedPayments,
+            };
+            await handleSaveIncidentalProgram(updatedProg);
+          }
+        }
+      }
     } catch (err: unknown) {
       console.error('Error updating transaction in Firestore:', err);
       setDbErrorMessage(err instanceof Error ? err.message : 'Gagal memperbarui transaksi di Firebase.');

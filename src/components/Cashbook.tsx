@@ -33,7 +33,7 @@ import {
   MONTHS,
   MonthKey,
 } from '../types';
-import { formatRupiah, formatDateIndo, formatAttachmentFileName, getTodayJakarta, formatDateTimeJakarta, formatDateJakarta } from '../utils/formatters';
+import { formatRupiah, formatDateIndo, formatAttachmentFileName, getTodayJakarta, formatDateTimeJakarta, formatDateJakarta, getCleanRtRwTitle, getCleanProfileName } from '../utils/formatters';
 import { uploadFileToGoogleDrive } from '../services/googleDrive';
 import { getAccessToken, googleSignIn } from '../services/auth';
 
@@ -463,7 +463,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
         </head>
         <body>
           <div class="header">
-            <h1>RT ${profile.rtNumber} / RW ${profile.rwNumber} ${profile.name.toUpperCase()}</h1>
+            <h1>${getCleanRtRwTitle(profile).toUpperCase()}</h1>
             <p>Desa ${profile.subdistrict}, Kec. ${profile.district}, ${profile.city}, Jawa Barat</p>
             <h2 style="margin: 8px 0 0 0; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: #0f172a; text-transform: uppercase;">BUKU KAS OPERASIONAL RT</h2>
           </div>
@@ -1634,7 +1634,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
                     {editingTx ? 'Edit Transaksi Kas' : 'Catat Transaksi Kas Baru'}
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Buku kas operasional lingkungan {profile.name}
+                    Buku kas operasional {getCleanRtRwTitle(profile)}
                   </p>
                 </div>
               </div>
@@ -1889,7 +1889,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
                   <h3 className="font-semibold text-base leading-tight">
                     {editingDebt ? 'Edit Catatan Utang / Piutang' : 'Catat Utang / Piutang Baru'}
                   </h3>
-                  <p className="text-xs text-slate-400">Pengelolaan keuangan {profile.name}</p>
+                  <p className="text-xs text-slate-400">Pengelolaan keuangan {getCleanRtRwTitle(profile)}</p>
                 </div>
               </div>
               <button

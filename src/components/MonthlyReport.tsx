@@ -265,7 +265,13 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
         const payment = res.payments[m];
 
         if (payment && payment.paid) {
-          resPaidInPeriod += payment.amount || monthlyRate;
+          const paidAmt = payment.amount || monthlyRate;
+          resPaidInPeriod += paidAmt;
+          const shortfall = monthlyRate - paidAmt;
+          if (shortfall > 0) {
+            resUnpaidMonths.push(`${m} (Kurang ${formatRupiah(shortfall)})` as any);
+            resUnpaidSum += shortfall;
+          }
         } else {
           resUnpaidMonths.push(m);
           resUnpaidSum += monthlyRate;
@@ -804,9 +810,9 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
               <img src="/logo-rt05.png" alt="Logo RT 05" style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%;" />
             </div>
             <div style="text-align: center;">
-              <h2>PENGURUS RUKUN TETANGGA 05 / RUKUN WARGA 08</h2>
-              <h3>DESA SATRIAJAYA, KECAMATAN TAMBUN UTARA, KABUPATEN BEKASI</h3>
-              <p>Sekretariat: RT 05 / RW 08 Satriajaya, Tambun Utara, Bekasi, Jawa Barat</p>
+              <h2>PENGURUS RUKUN TETANGGA ${profile.rtNumber || '05'} / RUKUN WARGA ${profile.rwNumber || '08'}</h2>
+              <h3>DESA ${(profile.subdistrict || 'Satriajaya').toUpperCase()}, KECAMATAN ${(profile.district || 'Tambun Utara').toUpperCase()}, ${(profile.city || 'Bekasi').toUpperCase()}</h3>
+              <p>Sekretariat: RT ${profile.rtNumber || '05'} / RW ${profile.rwNumber || '08'}, Desa ${profile.subdistrict || 'Satriajaya'}, ${profile.district || 'Tambun Utara'}, ${profile.city || 'Bekasi'}</p>
             </div>
           </div>
         </div>
@@ -2158,13 +2164,13 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
                   <RTLogo className="w-16 h-16 sm:w-18 sm:h-18 border-2 border-white/90 shadow-md shrink-0 bg-white" />
                   <div>
                     <h2 className="text-base sm:text-lg font-black tracking-wider uppercase text-white font-sans">
-                      PENGURUS RUKUN TETANGGA 05 / RUKUN WARGA 08
+                      PENGURUS RUKUN TETANGGA {profile.rtNumber || '05'} / RUKUN WARGA {profile.rwNumber || '08'}
                     </h2>
                     <h3 className="text-xs sm:text-sm font-semibold tracking-wide uppercase text-emerald-200 font-sans mt-0.5">
-                      DESA SATRIAJAYA, KECAMATAN TAMBUN UTARA, KABUPATEN BEKASI
+                      DESA {(profile.subdistrict || 'Satriajaya').toUpperCase()}, KECAMATAN {(profile.district || 'Tambun Utara').toUpperCase()}, {(profile.city || 'Bekasi').toUpperCase()}
                     </h3>
                     <p className="text-[11px] text-emerald-100 font-sans mt-1">
-                      Sekretariat: RT 05 / RW 08 Satriajaya, Tambun Utara, Bekasi, Jawa Barat
+                      Sekretariat: RT {profile.rtNumber || '05'} / RW {profile.rwNumber || '08'}, Desa {profile.subdistrict || 'Satriajaya'}, {profile.district || 'Tambun Utara'}, {profile.city || 'Bekasi'}
                     </p>
                   </div>
                 </div>

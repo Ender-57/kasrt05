@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { X, Printer, Share2, CheckCircle2, Building, ShieldCheck, Download, Loader2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { Resident, MonthKey, RTProfile } from '../types';
-import { formatRupiah, formatDateIndo, terbilang, getOfficerForDate } from '../utils/formatters';
+import { formatRupiah, formatDateIndo, terbilang, getOfficerForDate, getCleanRtRwTitle, getCleanProfileName } from '../utils/formatters';
 
 interface ReceiptModalProps {
   isOpen: boolean;
@@ -244,10 +244,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   />
                   <div className="text-left">
                     <h2 className="text-base font-bold tracking-tight text-slate-900 uppercase leading-tight">
-                      {profile.name}
+                      {getCleanRtRwTitle(profile)}
                     </h2>
                     <p className="text-[11px] text-slate-500 leading-tight mt-0.5">
-                      RT {profile.rtNumber} / RW {profile.rwNumber}, Desa {profile.subdistrict}, Kec. {profile.district}, {profile.city}
+                      Desa {profile.subdistrict}, Kec. {profile.district}, {profile.city}
                     </p>
                   </div>
                 </div>

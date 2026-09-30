@@ -1,7 +1,7 @@
 import { Resident, CashTransaction, RTProfile, DebtItem } from '../types';
 
 export const INITIAL_RT_PROFILE: RTProfile = {
-  name: 'RT 05 / RW 08 Satriajaya',
+  name: 'Satriajaya',
   rtNumber: '05',
   rwNumber: '08',
   subdistrict: 'Satriajaya',

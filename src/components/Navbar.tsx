@@ -14,6 +14,7 @@ import {
   Contact,
 } from 'lucide-react';
 import { RTProfile, GoogleSyncState } from '../types';
+import { getCleanRtRwTitle } from '../utils/formatters';
 import { logoutGoogle } from '../services/auth';
 
 interface NavbarProps {
@@ -107,7 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="shrink-0">
               <div className="flex items-center gap-1.5">
                 <h1 className="font-bold text-slate-900 text-sm sm:text-base leading-tight whitespace-nowrap">
-                  {profile.name}
+                  {getCleanRtRwTitle(profile)}
                 </h1>
                 <span className="px-1.5 py-0.2 text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md whitespace-nowrap">
                   2026

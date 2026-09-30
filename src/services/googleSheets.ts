@@ -1,4 +1,5 @@
 import { Resident, CashTransaction, RTProfile, MONTHS } from '../types';
+import { getCleanRtRwTitle } from '../utils/formatters';
 
 export interface SyncResult {
   spreadsheetId: string;
@@ -39,7 +40,7 @@ export const syncToGoogleSheets = async (
 
   // If no existing spreadsheet, create a new one with 5 sheets
   if (!spreadsheetId) {
-    const title = `Buku Kas, Iuran & Program Kerja ${profile.name} - Th 2026`;
+    const title = `Buku Kas, Iuran & Program Kerja ${getCleanRtRwTitle(profile)} - Th 2026`;
     const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
       method: 'POST',
       headers,
@@ -102,7 +103,7 @@ export const syncToGoogleSheets = async (
 
   // 1. Prepare Data for Sheet "Iuran Warga 2026"
   const duesRows: (string | number)[][] = [
-    [`REKAP IURAN RUTIN WARGA ${profile.name.toUpperCase()} TAHUN 2026`],
+    [`REKAP IURAN RUTIN WARGA ${getCleanRtRwTitle(profile).toUpperCase()} TAHUN 2026`],
     [
       'NO. RMH',
       'NAMA WARGA',

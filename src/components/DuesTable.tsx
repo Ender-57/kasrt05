@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { Resident, MonthKey, MONTHS, RTProfile, CashTransaction, IncidentalDuesProgram } from '../types';
-import { formatRupiah, formatAttachmentFileName, getTodayJakarta, formatDateTimeJakarta, formatDateJakarta } from '../utils/formatters';
+import { formatRupiah, formatAttachmentFileName, getTodayJakarta, formatDateTimeJakarta, formatDateJakarta, getCleanRtRwTitle } from '../utils/formatters';
 import { runSelfHealing } from '../utils/selfHealing';
 import { PaymentCorrectionModal } from './PaymentCorrectionModal';
 import { ResidentFormModal } from './ResidentFormModal';
@@ -405,10 +405,29 @@ export const DuesTable: React.FC<DuesTableProps> = ({
       
       const monthlyCells = MONTHS.map(m => {
         const p = r.payments[m];
+        const rate = getRateForMonth(r, m);
+        const isPartial = p?.paid && p.amount < rate;
+        const shortfall = rate - (p?.amount || 0);
+
+        if (isVacant) {
+          return `<td style="border: 1px solid #cbd5e1; padding: 4px; font-size: 10px; text-align: center; color: #94a3b8;">-</td>`;
+        }
+
         if (p?.paid) {
-          return `<td style="border: 1px solid #94a3b8; padding: 4px 6px; font-size: 9px; text-align: center; color: #059669; font-weight: bold;">Lunas<br/><span style="font-size: 8px; font-weight: normal; color: #475569;">${formatRupiah(p.amount)}</span></td>`;
+          if (isPartial) {
+            return `<td style="border: 1px solid #fcd34d; background-color: #fffbeb; padding: 4px 2px; font-size: 8.5px; text-align: center; color: #92400e; font-weight: bold;">
+              <span style="display: inline-block; background-color: #fef3c7; color: #b45309; padding: 1px 3px; border-radius: 3px; font-size: 7.5px; border: 1px solid #fde68a;">Cicil</span><br/>
+              <span style="font-size: 8.5px; font-weight: bold; color: #b45309;">${formatRupiah(p.amount)}</span><br/>
+              <span style="font-size: 7.5px; font-weight: normal; color: #d97706;">(Kurang ${formatRupiah(shortfall)})</span>
+            </td>`;
+          } else {
+            return `<td style="border: 1px solid #cbd5e1; background-color: #ecfdf5; padding: 4px 2px; font-size: 8.5px; text-align: center; color: #047857; font-weight: bold;">
+              Lunas<br/>
+              <span style="font-size: 8px; font-weight: normal; color: #334155;">${formatRupiah(p.amount)}</span>
+            </td>`;
+          }
         } else {
-          return `<td style="border: 1px solid #94a3b8; padding: 4px 6px; font-size: 11px; text-align: center; color: #dc2626; font-weight: bold;">-</td>`;
+          return `<td style="border: 1px solid #cbd5e1; padding: 4px 6px; font-size: 11px; text-align: center; color: #dc2626; font-weight: bold;">-</td>`;
         }
       }).join('');
 
@@ -537,14 +556,20 @@ export const DuesTable: React.FC<DuesTableProps> = ({
         </head>
         <body>
           <div class="header">
-            <h1>RT ${profile.rtNumber} / RW ${profile.rwNumber} ${profile.name.toUpperCase()}</h1>
+            <h1>${getCleanRtRwTitle(profile).toUpperCase()}</h1>
             <p>Desa ${profile.subdistrict}, Kec. ${profile.district}, ${profile.city}, Jawa Barat</p>
             <h2 style="margin: 8px 0 0 0; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: #0f172a; text-transform: uppercase;">${titleText} (TAHUN 2026)</h2>
           </div>
           
           <div class="report-meta">
             <div>Kategori Filter: <span style="color: #0284c7; font-weight: bold;">${filterTab === 'ALL' ? 'Semua Rumah' : filterTab === 'LUNAS' ? 'Lunas' : filterTab === 'NUNGGAK' ? 'Menunggak' : 'Rumah Kosong'}</span></div>
-            <div>Tunggakan s.d. Bulan: <span style="color: #b45309; font-weight: bold;">${cutoffMonth} 2026</span></div>
+            <div>Tunggakan s.d.: <span style="color: #b45309; font-weight: bold;">${cutoffMonth} 2026</span></div>
+            <div>
+              Status: 
+              <span style="display:inline-block; padding:1px 4px; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:3px; color:#047857; font-size:8.5px; margin-right:3px;">✓ Lunas</span>
+              <span style="display:inline-block; padding:1px 4px; background:#fffbeb; border:1px solid #fde68a; border-radius:3px; color:#b45309; font-size:8.5px; margin-right:3px;">⚠ Cicil</span>
+              <span style="display:inline-block; padding:1px 4px; background:#fef2f2; border:1px solid #fecaca; border-radius:3px; color:#dc2626; font-size:8.5px;">- Nunggak</span>
+            </div>
             <div>Tanggal Cetak: <span>${timestamp}</span></div>
           </div>
 
@@ -1862,7 +1887,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
                             Kartu Tagihan Resmi
                           </span>
                           <h4 className="font-bold text-slate-800 text-xs uppercase leading-tight">
-                            RT {profile.rtNumber} / RW {profile.rwNumber} {profile.name}
+                            {getCleanRtRwTitle(profile)}
                           </h4>
                         </div>
                         <span className="px-2 py-0.5 text-[9px] font-bold bg-amber-100 text-amber-800 rounded">

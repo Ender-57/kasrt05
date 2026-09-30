@@ -13,11 +13,13 @@ import {
   CreditCard,
   Check,
   Pencil,
+  Printer,
+  FileText,
+  Share2,
 } from 'lucide-react';
 import { Resident, IncidentalDuesProgram, IncidentalDuesPayment, RTProfile, CashTransaction } from '../types';
-import { formatRupiah, formatDateIndo, getTodayJakarta } from '../utils/formatters';
+import { formatRupiah, formatDateIndo, getTodayJakarta, getCleanRtRwTitle, formatDateTimeJakarta, formatDateJakarta } from '../utils/formatters';
 import { IncidentalReceiptModal } from './IncidentalReceiptModal';
-import { FileText, Share2 } from 'lucide-react';
 
 interface IncidentalDuesViewProps {
   residents: Resident[];
@@ -78,6 +80,267 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
     program: null,
     payment: null,
   });
+
+  const handlePrintProgramReport = (prog: IncidentalDuesProgram) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Gagal membuka jendela cetak. Pastikan browser Anda tidak memblokir pop-up.');
+      return;
+    }
+
+    // Sort active residents numerically
+    const sortedResidents = [...residents]
+      .filter((r) => !r.isVacant)
+      .sort((a, b) => a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true }));
+
+    const paidCount = Object.values(prog.payments).filter((p) => p.paid).length;
+    const totalCount = sortedResidents.length || 1;
+    const percentPaid = Math.round((paidCount / totalCount) * 100);
+    const totalAmountCollected = paidCount * prog.amount;
+
+    const rows = sortedResidents
+      .map((r) => {
+        const payment = prog.payments[r.id];
+        const isPaid = Boolean(payment?.paid);
+
+        return `
+        <tr>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; text-align: center; font-weight: bold;">${r.houseNo}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; font-weight: 500;">${r.name}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; text-align: center; font-weight: bold; color: ${isPaid ? '#047857' : '#dc2626'}; background-color: ${isPaid ? '#ecfdf5' : '#fef2f2'};">
+            ${isPaid ? '✓ LUNAS' : '- BELUM BAYAR'}
+          </td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; text-align: right; font-weight: bold; font-family: monospace;">
+            ${formatRupiah(prog.amount)}
+          </td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; text-align: center; color: #475569;">
+            ${isPaid && payment.paidAt ? formatDateIndo(payment.paidAt) : '-'}
+          </td>
+          <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; text-align: center; color: #475569;">
+            ${isPaid && payment.paymentMethod ? payment.paymentMethod : '-'}
+          </td>
+        </tr>
+      `;
+      })
+      .join('');
+
+    const timestamp = formatDateTimeJakarta(new Date());
+    const treasurerOfficer = profile.officers?.find((o) => o.role.toLowerCase().includes('bendahara'));
+    const treasurerName = treasurerOfficer?.name || profile.treasurerName || 'Bendahara RT';
+
+    const chairpersonOfficer = profile.officers?.find((o) => o.role.toLowerCase().includes('ketua'));
+    const chairpersonName = chairpersonOfficer?.name || profile.chairpersonName || 'Ketua RT';
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>LAPORAN SWADAYA - ${prog.title} - ${getCleanRtRwTitle(profile)}</title>
+          <style>
+            @media print {
+              @page {
+                size: A4 portrait;
+                margin: 12mm 15mm;
+              }
+              body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+            body {
+              font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+              color: #1e293b;
+              margin: 0;
+              padding: 0;
+              font-size: 11px;
+              background-color: #ffffff;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 15px;
+              border-bottom: 3px double #0f172a;
+              padding-bottom: 10px;
+            }
+            .header h1 {
+              margin: 0 0 2px 0;
+              font-size: 16px;
+              font-weight: 800;
+              text-transform: uppercase;
+              color: #0f172a;
+            }
+            .header p {
+              margin: 0;
+              font-size: 11px;
+              color: #475569;
+            }
+            .title-box {
+              text-align: center;
+              background-color: #f1f5f9;
+              padding: 8px;
+              border-radius: 6px;
+              border: 1px solid #cbd5e1;
+              margin-bottom: 15px;
+            }
+            .title-box h2 {
+              margin: 0;
+              font-size: 13px;
+              font-weight: 800;
+              color: #0f172a;
+              text-transform: uppercase;
+            }
+            .title-box p {
+              margin: 2px 0 0 0;
+              font-size: 11px;
+              color: #047857;
+              font-weight: bold;
+            }
+            .summary-cards {
+              display: flex;
+              gap: 10px;
+              margin-bottom: 15px;
+            }
+            .card {
+              flex: 1;
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              padding: 8px;
+              border-radius: 6px;
+              text-align: center;
+            }
+            .card .label {
+              font-size: 9px;
+              color: #64748b;
+              text-transform: uppercase;
+              font-weight: bold;
+              display: block;
+            }
+            .card .val {
+              font-size: 12px;
+              font-weight: 800;
+              color: #0f172a;
+              margin-top: 2px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            th {
+              background-color: #f1f5f9;
+              color: #0f172a;
+              font-weight: bold;
+              text-align: center;
+              text-transform: uppercase;
+              font-size: 10px;
+              padding: 6px;
+              border: 1px solid #cbd5e1;
+            }
+            .footer-notes {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 30px;
+              page-break-inside: avoid;
+            }
+            .signature-block {
+              text-align: center;
+              width: 220px;
+            }
+            .signature-space {
+              height: 45px;
+            }
+            .signature-name {
+              font-weight: 700;
+              border-bottom: 1.5px solid #1e293b;
+              display: inline-block;
+              padding: 0 15px;
+              margin: 0;
+              color: #0f172a;
+            }
+            .system-note {
+              text-align: center;
+              font-size: 8px;
+              color: #94a3b8;
+              margin-top: 20px;
+              border-top: 1px dashed #cbd5e1;
+              padding-top: 8px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${getCleanRtRwTitle(profile).toUpperCase()}</h1>
+            <p>Desa ${profile.subdistrict}, Kec. ${profile.district}, ${profile.city}, Jawa Barat</p>
+          </div>
+
+          <div class="title-box">
+            <h2>LAPORAN REKAPITULASI IURAN INSIDENTIL & SWADAYA WARGA</h2>
+            <p>PROGRAM: ${prog.title.toUpperCase()}</p>
+          </div>
+
+          <div class="summary-cards">
+            <div class="card">
+              <span class="label">Iuran per Rumah</span>
+              <div class="val">${formatRupiah(prog.amount)}</div>
+            </div>
+            <div class="card">
+              <span class="label">Total Terkumpul</span>
+              <div class="val" style="color: #047857;">${formatRupiah(totalAmountCollected)}</div>
+            </div>
+            <div class="card">
+              <span class="label">Partisipasi Warga</span>
+              <div class="val">${paidCount} / ${totalCount} KK (${percentPaid}%)</div>
+            </div>
+            <div class="card">
+              <span class="label">Tanggal Cetak</span>
+              <div class="val" style="font-size: 10px; font-weight: 600;">${timestamp}</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 55px;">NO. RMH</th>
+                <th style="text-align: left;">NAMA WARGA</th>
+                <th style="width: 120px;">STATUS BAYAR</th>
+                <th style="width: 100px; text-align: right;">NOMINAL</th>
+                <th style="width: 110px;">TGL BAYAR</th>
+                <th style="width: 90px;">METODE</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+
+          <div class="footer-notes">
+            <div class="signature-block">
+              <p style="margin: 0 0 8px 0; font-size: 10px; color: #475569;">Mengetahui,</p>
+              <p style="margin: 0 0 10px 0; font-size: 10px; color: #475569; font-weight: 600;">Ketua RT ${profile.rtNumber},</p>
+              <div class="signature-space"></div>
+              <p class="signature-name">${chairpersonName}</p>
+            </div>
+            
+            <div class="signature-block">
+              <p style="margin: 0 0 2px 0; font-size: 10px; color: #475569;">${profile.city}, ${formatDateJakarta(new Date())}</p>
+              <p style="margin: 0 0 10px 0; font-size: 10px; color: #475569; font-weight: 600;">Bendahara Pengurus RT,</p>
+              <div class="signature-space"></div>
+              <p class="signature-name">${treasurerName}</p>
+            </div>
+          </div>
+
+          <div class="system-note">
+            Dokumen rekapitulasi resmi iuran swadaya lingkungan RT. Dicatat secara transparan dan akuntabel.
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   const startEditProgram = (prog: IncidentalDuesProgram) => {
     setEditingProgram(prog);
@@ -339,22 +602,33 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
                 </div>
 
                 {/* Footer Button */}
-                <div className="bg-slate-50/80 px-5 py-4 border-t border-slate-100 flex items-center justify-between">
+                <div className="bg-slate-50/80 px-5 py-4 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
                   <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
                     <span>Dibuat {formatDateIndo(prog.date)}</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedProgram(prog);
-                      setIsManageModalOpen(true);
-                    }}
-                    className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-white hover:bg-emerald-50 border border-slate-200 text-slate-700 hover:text-emerald-700 font-bold text-xs rounded-xl transition-all shadow-3xs cursor-pointer"
-                  >
-                    <Users className="w-3.5 h-3.5" />
-                    <span>{isAdmin ? 'Kelola Pembayaran' : 'Cek Status Bayar'}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handlePrintProgramReport(prog)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all shadow-3xs cursor-pointer"
+                      title="Cetak Rekap Swadaya Program ke PDF / Kertas"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Cetak PDF</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedProgram(prog);
+                        setIsManageModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-white hover:bg-emerald-50 border border-slate-200 text-slate-700 hover:text-emerald-700 font-bold text-xs rounded-xl transition-all shadow-3xs cursor-pointer"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>{isAdmin ? 'Kelola Pembayaran' : 'Cek Status Bayar'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -465,18 +739,29 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
                   {selectedProgram.title}
                 </h3>
               </div>
-              <button
-                onClick={() => {
-                  setIsManageModalOpen(false);
-                  setSelectedProgram(null);
-                  setRecordingResidentId(null);
-                  setResidentSearch('');
-                  setPaymentFilter('ALL');
-                }}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handlePrintProgramReport(selectedProgram)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-xs border border-emerald-400/30"
+                  title="Cetak Laporan Rekapitulasi Swadaya Warga ke PDF / Kertas"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Cetak PDF</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsManageModalOpen(false);
+                    setSelectedProgram(null);
+                    setRecordingResidentId(null);
+                    setResidentSearch('');
+                    setPaymentFilter('ALL');
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer ml-1"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Program Brief Alert Info */}

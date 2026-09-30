@@ -22,7 +22,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Resident, RTProfile } from '../types';
-import { formatRupiah } from '../utils/formatters';
+import { formatRupiah, getCleanRtRwTitle, getCleanProfileName } from '../utils/formatters';
 import { ResidentFormModal } from './ResidentFormModal';
 
 interface ResidentsDirectoryProps {
@@ -227,7 +227,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Buku induk kependudukan {profile.name} (No. KTP, No. KK, nama istri, anak, dan anggota keluarga)
+            Buku induk kependudukan {getCleanRtRwTitle(profile)} (No. KTP, No. KK, nama istri, anak, dan anggota keluarga)
           </p>
         </div>
 
@@ -415,10 +415,10 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
           BUKU INDUK DATA WARGA & KEPENDUDUKAN
         </h1>
         <p className="text-sm font-semibold text-slate-700 mt-1 uppercase">
-          {profile.name}
+          {getCleanRtRwTitle(profile)}
         </p>
         <p className="text-xs text-slate-500">
-          RT {profile.rtNumber} / RW {profile.rwNumber}, Desa {profile.subdistrict}, Kec. {profile.district}, {profile.city}
+          Desa {profile.subdistrict}, Kec. {profile.district}, {profile.city}
         </p>
       </div>
 

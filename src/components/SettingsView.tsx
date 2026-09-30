@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { RTProfile, Resident, CashTransaction, CommitteeOfficer } from '../types';
 import { INITIAL_RESIDENTS, INITIAL_TRANSACTIONS, INITIAL_RT_PROFILE } from '../data/initialData';
-import { formatDateIndo, getTodayJakarta } from '../utils/formatters';
+import { formatDateIndo, getTodayJakarta, getCleanRtRwTitle } from '../utils/formatters';
 import { resolveAdminPin } from '../utils/crypto';
 
 interface SettingsViewProps {
@@ -1090,7 +1090,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="flex justify-between">
                 <span className="text-slate-500">Nama RT / Wilayah:</span>
                 <span className="font-medium text-slate-900">
-                  {restoreModalData.profile.name} (RT {restoreModalData.profile.rtNumber} / RW {restoreModalData.profile.rwNumber})
+                  {getCleanRtRwTitle(restoreModalData.profile)}
                 </span>
               </div>
               <div className="flex justify-between">

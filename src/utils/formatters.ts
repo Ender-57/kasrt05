@@ -274,3 +274,46 @@ export const formatAttachmentFileName = (
 
   return `${yyyymmdd}-${cleanDesc}${ext}`;
 };
+
+/**
+ * Membersihkan nama profil RT dari awalan/pengulangan RT/RW atau 'WARGA RT ...'
+ * Contoh: 'RT 05 / RW 08 Satriajaya' -> 'Satriajaya'
+ * Contoh: 'RT 05 / RW 08 WARGA RT 05 / RW 08' -> 'Satriajaya'
+ */
+export const getCleanProfileName = (profile: { rtNumber?: string; rwNumber?: string; name?: string; subdistrict?: string }): string => {
+  const rt = profile.rtNumber || '05';
+  const rw = profile.rwNumber || '08';
+  let rawName = (profile.name || '').trim();
+
+  // Strip repeated patterns of RT xx / RW yy or WARGA RT xx / RW yy
+  rawName = rawName
+    .replace(new RegExp(`^RT\\s*0*${parseInt(rt, 10) || '5'}\\s*\\/\\s*RW\\s*0*${parseInt(rw, 10) || '8'}\\s*`, 'gi'), '')
+    .replace(new RegExp(`^WARGA\\s*RT\\s*0*${parseInt(rt, 10) || '5'}\\s*\\/\\s*RW\\s*0*${parseInt(rw, 10) || '8'}\\s*`, 'gi'), '')
+    .replace(/^WARGA\s*RT\s*\d+\s*\/\s*RW\s*\d+\s*/gi, '')
+    .replace(/^RT\s*\d+\s*\/\s*RW\s*\d+\s*/gi, '')
+    .replace(/^WARGA\s*/gi, '')
+    .trim();
+
+  if (!rawName || rawName.toLowerCase() === 'rt' || rawName.toLowerCase() === 'rw') {
+    return profile.subdistrict || 'Satriajaya';
+  }
+
+  return rawName;
+};
+
+/**
+ * Mengembalikan judul gabungan RT/RW + Nama tanpa pengulangan kata.
+ * Mengikuti instruksi user: "Hindari penggunaan kata yang berulang RT 05 / RW 08 WARGA RT 05 / RW 08, gunakan RT 05 / RW 08 saja"
+ */
+export const getCleanRtRwTitle = (profile: { rtNumber?: string; rwNumber?: string; name?: string; subdistrict?: string }): string => {
+  const rt = profile.rtNumber || '05';
+  const rw = profile.rwNumber || '08';
+  const baseRtRw = `RT ${rt} / RW ${rw}`;
+  const cleanName = getCleanProfileName(profile);
+
+  if (!cleanName || cleanName.toLowerCase() === profile.subdistrict?.toLowerCase()) {
+    return `${baseRtRw} ${cleanName}`.trim();
+  }
+
+  return `${baseRtRw} ${cleanName}`.trim();
+};

@@ -28,6 +28,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { RTProfile, CommitteeOfficer, ProgramKerjaItem } from '../types';
+import { getCleanRtRwTitle } from '../utils/formatters';
 
 interface OfficersViewProps {
   profile: RTProfile;
@@ -384,11 +385,11 @@ export const OfficersView: React.FC<OfficersViewProps> = ({
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Pengurus {profile.name}
+              Pengurus {getCleanRtRwTitle(profile)}
             </h2>
 
             <p className="text-emerald-100/90 text-sm sm:text-base leading-relaxed">
-              Selamat datang di portal informasi resmi Pengurus RT 05 / RW 08 Desa {profile.subdistrict}. Kami berkomitmen melayani warga dengan ikhlas, transparan, dan responsif.
+              Selamat datang di portal informasi resmi Pengurus {getCleanRtRwTitle(profile)} Desa {profile.subdistrict}. Kami berkomitmen melayani warga dengan ikhlas, transparan, dan responsif.
             </p>
 
             <div className="flex flex-wrap items-center gap-4 text-xs text-emerald-200/90 pt-1">

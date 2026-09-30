@@ -498,7 +498,7 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
             Iuran Insidentil & Swadaya Warga
           </h2>
           <p className="text-xs text-slate-500 mt-1 max-w-xl">
-            Kelola penggalangan iuran non-rutin bersasaran tunggal seperti program gotong-royong, pengerukan saluran air, fogging, perbaikan fasilitas RT, perayaan HUT RI dan program lainnya.
+            Program gotong-royong, pengerukan saluran air, fogging, perbaikan fasilitas RT, perayaan HUT RI dan program lainnya.
           </p>
         </div>
         {isAdmin && (

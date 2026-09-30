@@ -1012,14 +1012,14 @@ export const DuesTable: React.FC<DuesTableProps> = ({
       )}
 
       {/* Tab Switcher: Iuran Rutin vs Iuran Insidentil */}
-      <div className="flex border-b border-slate-200">
+      <div className="flex bg-slate-100 p-1.5 rounded-2xl max-w-lg border border-slate-200 gap-1.5 shadow-2xs">
         <button
           type="button"
           onClick={() => setActiveDuesTab('MONTHLY')}
-          className={`flex-1 sm:flex-initial py-3 px-6 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+          className={`flex-1 py-2.5 px-6 text-sm font-extrabold rounded-xl transition-all cursor-pointer text-center ${
             activeDuesTab === 'MONTHLY'
-              ? 'border-emerald-600 text-emerald-700'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-800 hover:bg-slate-200/40'
           }`}
         >
           Iuran Bulanan (Rutin)
@@ -1027,10 +1027,10 @@ export const DuesTable: React.FC<DuesTableProps> = ({
         <button
           type="button"
           onClick={() => setActiveDuesTab('INCIDENTAL')}
-          className={`flex-1 sm:flex-initial py-3 px-6 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+          className={`flex-1 py-2.5 px-6 text-sm font-extrabold rounded-xl transition-all cursor-pointer text-center ${
             activeDuesTab === 'INCIDENTAL'
-              ? 'border-emerald-600 text-emerald-700'
-              : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-800 hover:bg-slate-200/40'
           }`}
         >
           Iuran Insidentil (Khusus)

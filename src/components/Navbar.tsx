@@ -64,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse shrink-0"></span>
                 <span className="truncate font-medium">
                   <span className="hidden sm:inline">Selamat Datang </span>
-                  Pengurus RT {profile.rtNumber} ({isAdmin ? 'Admin/Bendahara' : 'Sekretaris'}) / RW {profile.rwNumber} Desa {profile.subdistrict}
+                  Pengurus RT {profile.rtNumber} {isSecretary ? '(Sekretaris) ' : ''}/ RW {profile.rwNumber} Desa {profile.subdistrict}
                 </span>
               </span>
             ) : (

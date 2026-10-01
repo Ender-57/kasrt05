@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import * as htmlToImage from 'html-to-image';
 import {
   TrendingUp,
   TrendingDown,
@@ -95,6 +96,7 @@ const CATEGORIES: TransactionCategory[] = [
   'Kegiatan Warga & HUT RI',
   'Sosial & Santunan Warga',
   'Kas & Operasional RT',
+  'Gaji & Honor',
   'Lain-lain',
 ];
 
@@ -108,7 +110,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
   onDeleteTransaction,
   onUpdateDebts,
 }) => {
-  const [activeBookTab, setActiveBookTab] = useState<'cash' | 'debts'>('cash');
+  const [activeBookTab, setActiveBookTab] = useState<'cash' | 'debts' | 'salaries'>('cash');
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | TransactionType>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | TransactionCategory>('ALL');
@@ -173,6 +175,285 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const [uploadStatus, setUploadStatus] = useState<string>('');
   const [isDriveConnected, setIsDriveConnected] = useState<boolean>(() => Boolean(getAccessToken()));
   const [formDriveError, setFormDriveError] = useState<string | null>(null);
+
+  // Salary Management States
+  const [isSalaryModalOpen, setIsSalaryModalOpen] = useState(false);
+  const [salaryRecipient, setSalaryRecipient] = useState('');
+  const [salaryMonth, setSalaryMonth] = useState('September 2026');
+  const [salaryBase, setSalaryBase] = useState<number | ''>('');
+  const [salaryDeduction, setSalaryDeduction] = useState<number | ''>('');
+  const [salaryDeductionType, setSalaryDeductionType] = useState<'KASBON' | 'LAINNYA'>('LAINNYA');
+  const [linkedDebtId, setLinkedDebtId] = useState('');
+  const [linkedDebtIds, setLinkedDebtIds] = useState<string[]>([]);
+  const [salaryNotes, setSalaryNotes] = useState('');
+  const [salaryDate, setSalaryDate] = useState(() => getTodayJakarta());
+  const [salaryRecipientType, setSalaryRecipientType] = useState<'OFFICER' | 'MANUAL'>('OFFICER');
+  const [printingTx, setPrintingTx] = useState<CashTransaction | null>(null);
+
+  const salaryTransactions = useMemo(() => {
+    return transactions.filter((tx) => tx.category === 'Gaji & Honor');
+  }, [transactions]);
+
+  const salaryStats = useMemo(() => {
+    let baseTotal = 0;
+    let deductionTotal = 0;
+    let netTotal = 0;
+    
+    salaryTransactions.forEach((tx) => {
+      baseTotal += tx.salaryBase || tx.amount;
+      deductionTotal += tx.salaryDeduction || 0;
+      netTotal += tx.amount;
+    });
+
+    return {
+      baseTotal,
+      deductionTotal,
+      netTotal,
+    };
+  }, [salaryTransactions]);
+
+  const handleSaveSalary = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!salaryRecipient || typeof salaryBase !== 'number' || salaryBase <= 0) return;
+
+    const deductionAmount = Number(salaryDeduction || 0);
+    const netAmount = salaryBase - deductionAmount;
+    if (netAmount < 0) {
+      alert('Potongan tidak boleh melebihi Gaji Pokok!');
+      return;
+    }
+
+    if (salaryDeductionType === 'KASBON' && deductionAmount > 0) {
+      if (linkedDebtIds.length === 0) {
+        alert('Silakan pilih setidaknya satu data piutang kasbon yang akan dikoneksikan!');
+        return;
+      }
+
+      // Compute total outstanding sum of selected debts
+      const totalSelectedRemaining = linkedDebtIds.reduce((sum, id) => {
+        const debt = debts.find(d => d.id === id);
+        return sum + (debt ? debt.remainingAmount : 0);
+      }, 0);
+
+      if (deductionAmount > totalSelectedRemaining) {
+        alert(`Jumlah potongan (${formatRupiah(deductionAmount)}) melebihi total kasbon terpilih (${formatRupiah(totalSelectedRemaining)})!`);
+        return;
+      }
+
+      // Distribute deduction sequentially across selected debts
+      let remainingDeduction = deductionAmount;
+      const updatedDebts = debts.map((d) => {
+        if (!linkedDebtIds.includes(d.id) || remainingDeduction <= 0) return d;
+
+        const deductFromThis = Math.min(d.remainingAmount, remainingDeduction);
+        remainingDeduction -= deductFromThis;
+
+        const newRemaining = d.remainingAmount - deductFromThis;
+        const newStatus: DebtStatus = newRemaining === 0 ? 'LUNAS' : 'BELUM_LUNAS';
+
+        const paymentRecord = {
+          id: `pay-${Date.now()}-${d.id}`,
+          date: salaryDate,
+          amount: deductFromThis,
+          note: `Potongan otomatis Gaji ${salaryMonth} (Bagian: ${formatRupiah(deductFromThis)})`,
+        };
+
+        return {
+          ...d,
+          remainingAmount: newRemaining,
+          status: newStatus,
+          paymentsHistory: [...(d.paymentsHistory || []), paymentRecord],
+        };
+      });
+      onUpdateDebts(updatedDebts);
+    }
+
+    // Save cash transaction KELUAR under category 'Gaji & Honor'
+    onAddTransaction({
+      date: salaryDate,
+      type: 'KELUAR',
+      category: 'Gaji & Honor',
+      description: `Gaji ${salaryMonth} - ${salaryRecipient} (Pokok: ${formatRupiah(salaryBase)}${deductionAmount > 0 ? `, Potongan: ${formatRupiah(deductionAmount)}` : ''})`,
+      amount: netAmount,
+      recordedBy: profile.treasurerName || 'Bendahara RT',
+      receiptNumber: `SLR-${Date.now().toString().slice(-6)}`,
+      notes: salaryNotes,
+      salaryBase,
+      salaryDeduction: deductionAmount,
+      salaryDeductionType: deductionAmount > 0 ? salaryDeductionType : undefined,
+      salaryRecipient,
+      salaryMonth,
+      linkedDebtId: salaryDeductionType === 'KASBON' && deductionAmount > 0 ? linkedDebtIds[0] : undefined,
+      linkedDebtIds: salaryDeductionType === 'KASBON' && deductionAmount > 0 ? linkedDebtIds : undefined,
+    });
+
+    setIsSalaryModalOpen(false);
+    // Reset form
+    setSalaryRecipient('');
+    setSalaryBase('');
+    setSalaryDeduction('');
+    setSalaryDeductionType('LAINNYA');
+    setLinkedDebtId('');
+    setLinkedDebtIds([]);
+    setSalaryNotes('');
+  };
+
+  const angkaKeTerbilang = (num: number): string => {
+    const values = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas'];
+    if (num < 12) return values[num];
+    if (num < 20) return angkaKeTerbilang(num - 10) + ' Belas';
+    if (num < 100) return angkaKeTerbilang(Math.floor(num / 10)) + ' Puluh ' + angkaKeTerbilang(num % 10);
+    if (num < 200) return 'Seratus ' + angkaKeTerbilang(num - 100);
+    if (num < 1000) return angkaKeTerbilang(Math.floor(num / 100)) + ' Ratus ' + angkaKeTerbilang(num % 100);
+    if (num < 2000) return 'Seribu ' + angkaKeTerbilang(num - 1000);
+    if (num < 1000000) return angkaKeTerbilang(Math.floor(num / 1000)) + ' Ribu ' + angkaKeTerbilang(num % 1000);
+    if (num < 1000000000) return angkaKeTerbilang(Math.floor(num / 1000000)) + ' Juta ' + angkaKeTerbilang(num % 1000000);
+    return num.toString();
+  };
+
+  const handlePrintSalaryReceipt = (tx: CashTransaction) => {
+    setPrintingTx(tx);
+  };
+
+  useEffect(() => {
+    if (printingTx) {
+      const generatePng = async () => {
+        // Wait a brief tick for React to render the offscreen DOM template
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        const el = document.getElementById('hidden-receipt-print-template');
+        if (el) {
+          try {
+            const dataUrl = await htmlToImage.toPng(el, {
+              pixelRatio: 2,
+              backgroundColor: '#ffffff',
+            });
+            
+            const win = window.open('', '_blank');
+            if (win) {
+              win.document.write(`
+                <html>
+                  <head>
+                    <title>KUITANSI GAJI - ${printingTx.salaryRecipient || printingTx.description}</title>
+                    <style>
+                      body {
+                        margin: 0;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        background-color: #f1f5f9;
+                        font-family: system-ui, -apple-system, sans-serif;
+                        padding: 20px;
+                        min-height: 100vh;
+                        box-sizing: border-box;
+                      }
+                      .container {
+                        background: white;
+                        padding: 24px;
+                        border-radius: 16px;
+                        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+                        text-align: center;
+                        max-width: 780px;
+                        width: 100%;
+                        box-sizing: border-box;
+                      }
+                      img {
+                        max-width: 100%;
+                        height: auto;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 8px;
+                        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+                      }
+                      .btn-group {
+                        margin-top: 20px;
+                        display: flex;
+                        gap: 12px;
+                        justify-content: center;
+                      }
+                      .btn {
+                        padding: 10px 20px;
+                        font-size: 13px;
+                        font-weight: 600;
+                        border-radius: 10px;
+                        cursor: pointer;
+                        border: none;
+                        transition: all 0.2s;
+                        text-decoration: none;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                      }
+                      .btn-primary {
+                        background-color: #0f172a;
+                        color: white;
+                      }
+                      .btn-primary:hover {
+                        background-color: #1e293b;
+                      }
+                      .btn-secondary {
+                        background-color: #f1f5f9;
+                        color: #0f172a;
+                        border: 1px solid #e2e8f0;
+                      }
+                      .btn-secondary:hover {
+                        background-color: #e2e8f0;
+                      }
+                      @media print {
+                        .btn-group, h3, p {
+                          display: none !important;
+                        }
+                        body {
+                          background: none;
+                          padding: 0;
+                          min-height: auto;
+                        }
+                        .container {
+                          box-shadow: none;
+                          padding: 0;
+                          max-width: 100%;
+                        }
+                        img {
+                          border: none;
+                          box-shadow: none;
+                          width: 100%;
+                        }
+                      }
+                    </style>
+                  </head>
+                  <body>
+                    <div class="container">
+                      <h3 style="margin: 0 0 6px 0; color: #0f172a; font-size: 16px; font-weight: 700;">Kuitansi Pembayaran Gaji</h3>
+                      <p style="font-size: 12px; color: #64748b; margin: 0 0 20px 0;">Format PNG siap cetak. Gunakan tombol di bawah atau klik kanan gambar untuk menyimpan.</p>
+                      <img src="${dataUrl}" alt="Kuitansi Gaji" />
+                      <div class="btn-group">
+                        <button class="btn btn-primary" onclick="window.print()">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-printer"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+                          Cetak Kuitansi (PDF)
+                        </button>
+                        <a href="${dataUrl}" download="Kuitansi_Gaji_${(printingTx.salaryRecipient || 'Penerima').replace(/\\s+/g, '_')}_${printingTx.salaryMonth || ''}.png" class="btn btn-secondary">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                          Unduh Gambar PNG
+                        </a>
+                      </div>
+                    </div>
+                  </body>
+                </html>
+              `);
+              win.document.close();
+            } else {
+              alert('Gagal membuka jendela baru. Pastikan pop-up diperbolehkan.');
+            }
+          } catch (err) {
+            console.error('Failed to render kuitansi image:', err);
+            alert('Gagal membuat gambar kuitansi.');
+          } finally {
+            setPrintingTx(null);
+          }
+        }
+      };
+      generatePng();
+    }
+  }, [printingTx]);
 
   useEffect(() => {
     setIsDriveConnected(Boolean(getAccessToken()));
@@ -836,6 +1117,32 @@ export const Cashbook: React.FC<CashbookProps> = ({
 
   const confirmDeleteTransaction = () => {
     if (deleteConfirmTx) {
+      // Restore debt remainingAmount if this was a salary with a linked Kasbon deduction
+      const tx = transactions.find((t) => t.id === deleteConfirmTx.id);
+      if (tx && tx.category === 'Gaji & Honor' && tx.salaryDeductionType === 'KASBON' && tx.salaryDeduction) {
+        const idsToRestore = tx.linkedDebtIds || (tx.linkedDebtId ? [tx.linkedDebtId] : []);
+        if (idsToRestore.length > 0) {
+          const updatedDebts = debts.map((d) => {
+            if (!idsToRestore.includes(d.id)) return d;
+            
+            // Find the payment record in paymentsHistory
+            const matchingPayment = d.paymentsHistory?.find(p => p.note?.includes(`Gaji ${tx.salaryMonth}`));
+            const refundAmount = matchingPayment ? matchingPayment.amount : 0;
+            
+            const filteredHistory = d.paymentsHistory?.filter(p => p.id !== matchingPayment?.id) || [];
+            const newRemaining = d.remainingAmount + refundAmount;
+            
+            return {
+              ...d,
+              remainingAmount: newRemaining,
+              status: 'BELUM_LUNAS' as DebtStatus,
+              paymentsHistory: filteredHistory,
+            };
+          });
+          onUpdateDebts(updatedDebts);
+        }
+      }
+
       onDeleteTransaction(deleteConfirmTx.id);
       setDeleteConfirmTx(null);
     }
@@ -904,7 +1211,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
         </div>
       </div>
 
-      {/* Sub-tab Switcher: Buku Kas Operasional vs Pengelolaan Utang Piutang */}
+      {/* Sub-tab Switcher: Buku Kas Operasional vs Pengelolaan Utang Piutang vs Pengelolaan Gaji */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
         <button
           onClick={() => setActiveBookTab('cash')}
@@ -928,9 +1235,20 @@ export const Cashbook: React.FC<CashbookProps> = ({
           <span className="w-2 h-2 rounded-full bg-amber-400"></span>
           <span>Pengelolaan Utang & Piutang ({debts.filter(d => d.status === 'BELUM_LUNAS').length} Aktif)</span>
         </button>
+        <button
+          onClick={() => setActiveBookTab('salaries')}
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
+            activeBookTab === 'salaries'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+          <span>Pengelolaan Gaji ({transactions.filter(tx => tx.category === 'Gaji & Honor').length} Catatan)</span>
+        </button>
       </div>
 
-      {activeBookTab === 'debts' ? (
+      {activeBookTab === 'debts' && (
         <div className="space-y-6">
           {/* Debt Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1138,7 +1456,9 @@ export const Cashbook: React.FC<CashbookProps> = ({
             </div>
           </div>
         </div>
-      ) : (
+      )}
+
+      {activeBookTab === 'cash' && (
         <div className="space-y-6">
           {/* FILTER PANEL JANGKA WAKTU & DATA KEUANGAN */}
           <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
@@ -1618,6 +1938,515 @@ export const Cashbook: React.FC<CashbookProps> = ({
         </div>
       </div>
       </div>
+      )}
+
+      {activeBookTab === 'salaries' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Summary Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs min-w-0 overflow-hidden">
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 truncate">
+                Total Gaji Pokok
+              </div>
+              <div className="text-xl sm:text-2xl font-extrabold text-slate-900 font-mono tracking-tight truncate">
+                {formatRupiah(salaryStats.baseTotal)}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-1 truncate">
+                Total bruto seluruh honor & gaji pengurus
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs min-w-0 overflow-hidden">
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 truncate">
+                Potongan Kasbon / Lain
+              </div>
+              <div className="text-xl sm:text-2xl font-extrabold text-amber-700 font-mono tracking-tight truncate">
+                {formatRupiah(salaryStats.deductionTotal)}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-1 truncate">
+                Total pemotongan kasbon pengurus RT
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs min-w-0 overflow-hidden">
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1 truncate">
+                Kas Bersih Dikeluarkan
+              </div>
+              <div className="text-xl sm:text-2xl font-extrabold text-rose-700 font-mono tracking-tight truncate">
+                {formatRupiah(salaryStats.netTotal)}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-1 truncate">
+                Realisasi kas keluar bersih setelah potongan
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+              <div>
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                  Penggajian RT
+                </div>
+                <div className="text-base font-extrabold text-slate-900">
+                  {salaryTransactions.length} Transaksi Gaji
+                </div>
+                <div className="text-[11px] text-emerald-600 font-medium mt-1">
+                  Terkoneksi Piutang Warga
+                </div>
+              </div>
+              {isAdmin && (
+                <button
+                  onClick={() => setIsSalaryModalOpen(true)}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Bayar Gaji</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Salary Records List */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Riwayat Pembayaran Gaji & Honor RT</h3>
+                <p className="text-xs text-slate-500">Daftar pembayaran gaji berkala petugas atau pengurus RT</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse min-w-[900px]">
+                <thead>
+                  <tr className="bg-slate-900 text-white font-bold select-none text-[11px]">
+                    <th className="py-3 px-3 w-12 text-center border-r border-slate-800">NO.</th>
+                    <th className="py-3 px-4 border-r border-slate-800">PENERIMA GAJI</th>
+                    <th className="py-3 px-3 border-r border-slate-800 text-center w-32">BULAN GAJI</th>
+                    <th className="py-3 px-3.5 text-right w-36 border-r border-slate-800">GAJI POKOK (BRUTO)</th>
+                    <th className="py-3 px-3.5 text-right w-36 border-r border-slate-800">POTONGAN</th>
+                    <th className="py-3 px-3.5 text-right w-36 border-r border-slate-800 bg-slate-800 text-white">GAJI BERSIH (NETTO)</th>
+                    <th className="py-3 px-3.5 text-center w-32 border-r border-slate-800">TANGGAL BAYAR</th>
+                    <th className="py-3 px-4 border-r border-slate-800">KONEKSI KASBON / PIUTANG</th>
+                    {isAdmin && <th className="py-3 px-3 text-center w-20">AKSI</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {salaryTransactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={isAdmin ? 9 : 8} className="py-12 text-center text-slate-400 font-medium">
+                        Belum ada catatan transaksi gaji pengurus. Klik "Bayar Gaji" untuk menambahkan.
+                      </td>
+                    </tr>
+                  ) : (
+                    salaryTransactions.map((tx, idx) => {
+                      const displayDeduction = tx.salaryDeduction || 0;
+                      const displayBase = tx.salaryBase || tx.amount;
+                      const displayNet = tx.amount;
+                      
+                      const linkedDebt = debts.find(d => d.id === tx.linkedDebtId);
+
+                      return (
+                        <tr key={tx.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-3 text-center text-slate-700 font-mono font-bold border-r border-slate-100 bg-slate-50/40">
+                            {idx + 1}
+                          </td>
+                          <td className="py-3 px-4 border-r border-slate-100">
+                            <div className="font-semibold text-slate-900">{tx.salaryRecipient || tx.description}</div>
+                            {tx.notes && <p className="text-[10px] text-slate-400 font-normal">{tx.notes}</p>}
+                          </td>
+                          <td className="py-3 px-3 border-r border-slate-100 text-center font-bold text-blue-900">
+                            {tx.salaryMonth || 'September 2026'}
+                          </td>
+                          <td className="py-3 px-3.5 border-r border-slate-100 text-right font-mono text-slate-700">
+                            {formatRupiah(displayBase)}
+                          </td>
+                          <td className="py-3 px-3.5 border-r border-slate-100 text-right font-mono text-amber-700 font-semibold">
+                            {displayDeduction > 0 ? (
+                              <div className="flex flex-col items-end">
+                                <span>-{formatRupiah(displayDeduction)}</span>
+                                <span className="text-[9px] text-slate-400 uppercase font-bold tracking-tight">
+                                  {tx.salaryDeductionType === 'KASBON' ? 'Kasbon' : 'Lainnya'}
+                                </span>
+                              </div>
+                            ) : '-'}
+                          </td>
+                          <td className="py-3 px-3.5 border-r border-slate-100 text-right font-mono text-rose-700 font-extrabold bg-slate-50/40">
+                            {formatRupiah(displayNet)}
+                          </td>
+                          <td className="py-3 px-3.5 border-r border-slate-100 text-center font-medium font-mono text-slate-600">
+                            {formatDateIndo(tx.date)}
+                          </td>
+                          <td className="py-3 px-4 border-r border-slate-100">
+                            {tx.salaryDeductionType === 'KASBON' && tx.linkedDebtId ? (
+                              <div className="space-y-1">
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-bold text-amber-800 bg-amber-50 rounded-full border border-amber-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                  Terhubung Kasbon
+                                </span>
+                                <p className="text-[10px] text-slate-500">
+                                  Pihak: <strong>{linkedDebt ? linkedDebt.personName : 'Warga'}</strong>
+                                  {linkedDebt && (
+                                    <span className="block text-[9px] text-slate-400">
+                                      (Sisa Kasbon: {formatRupiah(linkedDebt.remainingAmount)} / {linkedDebt.status === 'LUNAS' ? '✅ Lunas' : '⚠️ Belum Lunas'})
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic">Tidak ada potongan kasbon</span>
+                            )}
+                          </td>
+                          {isAdmin && (
+                            <td className="py-3 px-3 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => handlePrintSalaryReceipt(tx)}
+                                  title="Cetak Kuitansi Gaji"
+                                  className="p-1 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <Printer className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(tx)}
+                                  title="Hapus catatan gaji"
+                                  className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
+              <span>
+                Total <strong>{salaryTransactions.length}</strong> transaksi penggajian tercatat
+              </span>
+              <span className="text-slate-400">
+                Pencatatan kas otomatis disinkronkan ke Buku Kas Utama
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Bayar Gaji (Salary Payment Modal) */}
+      {isSalaryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-500/20 text-blue-400 rounded-lg">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base leading-tight">
+                    Catat Pembayaran Gaji / Honor Baru
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Sistem penggajian internal {getCleanRtRwTitle(profile)}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsSalaryModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSalary} className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
+              {/* Tipe Penerima Gaji */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Tipe Penerima Gaji *</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSalaryRecipientType('OFFICER');
+                      setSalaryRecipient('');
+                    }}
+                    className={`py-2 px-3 rounded-xl font-bold border transition-all cursor-pointer ${
+                      salaryRecipientType === 'OFFICER'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Pengurus RT Aktif
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSalaryRecipientType('MANUAL');
+                      setSalaryRecipient('');
+                    }}
+                    className={`py-2 px-3 rounded-xl font-bold border transition-all cursor-pointer ${
+                      salaryRecipientType === 'MANUAL'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Input Manual (Petugas / Lain)
+                  </button>
+                </div>
+              </div>
+
+              {/* Nama Penerima */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Nama Penerima Gaji *</label>
+                {salaryRecipientType === 'OFFICER' ? (
+                  <select
+                    required
+                    value={salaryRecipient}
+                    onChange={(e) => setSalaryRecipient(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="" disabled>Pilih dari pengurus RT...</option>
+                    {profile.officers && profile.officers.length > 0 ? (
+                      profile.officers
+                        .filter(off => off.isCurrent !== false)
+                        .map(off => (
+                          <option key={off.id} value={`${off.name} (${off.role})`}>
+                            {off.role}: {off.name}
+                          </option>
+                        ))
+                    ) : (
+                      <option disabled>Tidak ada data pengurus RT aktif</option>
+                    )}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    required
+                    value={salaryRecipient}
+                    onChange={(e) => setSalaryRecipient(e.target.value)}
+                    placeholder="Masukkan nama penerima gaji (cth: Pak Rosam - Petugas Sampah)"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  />
+                )}
+              </div>
+
+              {/* Bulan Gaji & Tanggal Pembayaran */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Bulan Gaji *</label>
+                  <select
+                    value={salaryMonth}
+                    onChange={(e) => setSalaryMonth(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="Januari 2026">Januari 2026</option>
+                    <option value="Februari 2026">Februari 2026</option>
+                    <option value="Maret 2026">Maret 2026</option>
+                    <option value="April 2026">April 2026</option>
+                    <option value="Mei 2026">Mei 2026</option>
+                    <option value="Juni 2026">Juni 2026</option>
+                    <option value="Juli 2026">Juli 2026</option>
+                    <option value="Agustus 2026">Agustus 2026</option>
+                    <option value="September 2026">September 2026</option>
+                    <option value="Oktober 2026">Oktober 2026</option>
+                    <option value="November 2026">November 2026</option>
+                    <option value="Desember 2026">Desember 2026</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Tanggal Pembayaran *</label>
+                  <input
+                    type="date"
+                    required
+                    value={salaryDate}
+                    onChange={(e) => setSalaryDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Gaji Pokok */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Nominal Gaji Pokok (Rp) *</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  value={salaryBase}
+                  onChange={(e) => setSalaryBase(e.target.value !== '' ? Number(e.target.value) : '')}
+                  placeholder="Contoh: 1500000"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono text-base font-bold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              {/* Potongan & Jenis Potongan */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Nominal Potongan (Rp)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={salaryDeduction}
+                    onChange={(e) => setSalaryDeduction(e.target.value !== '' ? Number(e.target.value) : '')}
+                    placeholder="Contoh: 150000 (Kosongkan jika tidak ada)"
+                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                {salaryDeduction !== '' && Number(salaryDeduction) > 0 && (
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Sumber / Jenis Potongan *</label>
+                    <select
+                      value={salaryDeductionType}
+                      onChange={(e) => setSalaryDeductionType(e.target.value as 'KASBON' | 'LAINNYA')}
+                      className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="LAINNYA">Potongan Lain-lain</option>
+                      <option value="KASBON">Potongan Kasbon / Piutang</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Koneksi Kasbon / Piutang */}
+              {salaryDeduction !== '' && Number(salaryDeduction) > 0 && salaryDeductionType === 'KASBON' && (
+                <div className="p-3.5 bg-amber-50/50 border border-amber-200 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold text-amber-900">Pilih Satu atau Lebih Kasbon Aktif *</label>
+                    <span className="text-[9px] text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md font-bold">Multi-Select</span>
+                  </div>
+                  
+                  <div className="space-y-1.5 max-h-[140px] overflow-y-auto bg-white p-2 rounded-xl border border-amber-200/60 shadow-inner">
+                    {debts.filter(d => d.type === 'PIUTANG' && d.status === 'BELUM_LUNAS').length > 0 ? (
+                      debts
+                        .filter(d => d.type === 'PIUTANG' && d.status === 'BELUM_LUNAS')
+                        .map((p) => {
+                          const isChecked = linkedDebtIds.includes(p.id);
+                          return (
+                            <label key={p.id} className="flex items-start gap-2.5 p-1.5 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setLinkedDebtIds([...linkedDebtIds, p.id]);
+                                  } else {
+                                    setLinkedDebtIds(linkedDebtIds.filter((id) => id !== p.id));
+                                  }
+                                }}
+                                className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer mt-0.5 shrink-0"
+                              />
+                              <div className="text-[11px] leading-tight">
+                                <span className="font-semibold text-slate-800">{p.personName}</span>
+                                <span className="block text-[10px] text-slate-500 font-mono">
+                                  Sisa: {formatRupiah(p.remainingAmount)} {p.dueDate ? `• Tempo: ${formatDateIndo(p.dueDate)}` : ''}
+                                </span>
+                              </div>
+                            </label>
+                          );
+                        })
+                    ) : (
+                      <p className="text-[11px] text-slate-400 italic p-2 text-center">Tidak ada data piutang kasbon aktif</p>
+                    )}
+                  </div>
+
+                  {linkedDebtIds.length > 0 && (
+                    <div className="text-[11px] text-amber-900 font-medium bg-amber-100/40 p-2.5 rounded-lg border border-amber-200 space-y-1">
+                      <p className="font-bold border-b border-amber-200/60 pb-1 mb-1 text-[10px] uppercase tracking-wider text-amber-950">SIMULASI ALOKASI POTONGAN KASBON:</p>
+                      {(() => {
+                        let remainingDeduction = Number(salaryDeduction || 0);
+                        const allocationDetails: React.ReactNode[] = [];
+                        let totalCovered = 0;
+
+                        linkedDebtIds.forEach((id) => {
+                          const d = debts.find(debt => debt.id === id);
+                          if (!d) return;
+
+                          const deductFromThis = Math.min(d.remainingAmount, remainingDeduction);
+                          remainingDeduction -= deductFromThis;
+                          totalCovered += deductFromThis;
+
+                          const finalRemaining = d.remainingAmount - deductFromThis;
+
+                          allocationDetails.push(
+                            <div key={d.id} className="flex justify-between items-center text-[10px] py-0.5">
+                              <span className="truncate max-w-[150px]">{d.personName}:</span>
+                              <span className="font-mono text-slate-700">
+                                Sisa {formatRupiah(d.remainingAmount)} → <strong className="text-rose-700">-{formatRupiah(deductFromThis)}</strong> → {finalRemaining === 0 ? <strong className="text-emerald-700 font-extrabold">(Lunas ✅)</strong> : <strong className="text-slate-900 font-bold">{formatRupiah(finalRemaining)}</strong>}
+                              </span>
+                            </div>
+                          );
+                        });
+
+                        return (
+                          <div className="space-y-1">
+                            {allocationDetails}
+                            <div className="border-t border-amber-200/60 pt-1 mt-1 flex justify-between font-bold text-amber-950 text-[10px]">
+                              <span>TOTAL TERPOTONG:</span>
+                              <span>{formatRupiah(totalCovered)} / {formatRupiah(Number(salaryDeduction || 0))}</span>
+                            </div>
+                            {remainingDeduction > 0 && (
+                              <p className="text-[10px] text-rose-700 font-bold mt-1">
+                                ⚠️ Sisa potongan {formatRupiah(remainingDeduction)} tidak tercakup karena sisa kasbon tidak mencukupi!
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Total Gaji Bersih Display */}
+              {typeof salaryBase === 'number' && salaryBase > 0 && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block">TOTAL GAJI BERSIH (YANG DITRANSFER)</span>
+                    <span className="text-xl font-extrabold font-mono text-emerald-800">
+                      {formatRupiah(salaryBase - Number(salaryDeduction || 0))}
+                    </span>
+                  </div>
+                  <div className="text-right text-[10px] text-emerald-700 font-medium">
+                    Pokok: {formatRupiah(salaryBase)}
+                    {Number(salaryDeduction || 0) > 0 && <span className="block text-amber-700">Potongan: -{formatRupiah(Number(salaryDeduction))}</span>}
+                  </div>
+                </div>
+              )}
+
+              {/* Keterangan */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Catatan / Keterangan Gaji</label>
+                <textarea
+                  rows={2}
+                  value={salaryNotes}
+                  onChange={(e) => setSalaryNotes(e.target.value)}
+                  placeholder="Contoh: Pembayaran honor bulanan beserta potongan kasbon tahap 1"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 resize-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsSalaryModalOpen(false)}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl shadow-xs cursor-pointer"
+                >
+                  Bayar Gaji & Potong Kasbon
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Modal Tambah / Edit Transaksi Kas */}
@@ -2179,6 +3008,158 @@ export const Cashbook: React.FC<CashbookProps> = ({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Hidden PNG Receipt Generation Template */}
+      {printingTx && (
+        <div
+          id="hidden-receipt-print-template"
+          style={{
+            position: 'absolute',
+            left: '-9999px',
+            top: '-9999px',
+            width: '740px',
+            height: '460px',
+            backgroundColor: '#ffffff',
+            color: '#000000',
+            fontFamily: "'Courier New', Courier, monospace",
+            padding: '12px',
+            boxSizing: 'border-box',
+          }}
+        >
+          <div
+            style={{
+              border: '3px double #000000',
+              padding: '12px',
+              borderRadius: '4px',
+              height: '100%',
+              boxSizing: 'border-box',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+            }}
+          >
+            {/* Header */}
+            <table style={{ width: '100%', borderBottom: '2px solid #000000', paddingBottom: '6px', marginBottom: '10px' }}>
+              <tbody>
+                <tr>
+                  <td style={{ width: '80px', textAlign: 'left', fontWeight: 'bold', fontSize: '11px' }}>
+                    RT {profile.rtNumber}
+                  </td>
+                  <td style={{ textAlign: 'center', fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
+                    KUITANSI PEMBAYARAN GAJI & HONOR
+                  </td>
+                  <td style={{ textAlign: 'right', fontSize: '9px', lineHeight: '1.2' }}>
+                    No: <span style={{ fontWeight: 'bold' }}>{printingTx.receiptNumber || `SLR-${printingTx.id.split('-')[1] || printingTx.id.slice(-6)}`}</span><br />
+                    RT {profile.rtNumber} / RW {profile.rwNumber}<br />
+                    Desa {profile.subdistrict}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Content */}
+            <table style={{ width: '100%', marginBottom: '10px', borderCollapse: 'collapse', fontSize: '11px' }}>
+              <tbody>
+                <tr>
+                  <td style={{ width: '150px', fontWeight: 'bold', padding: '5px 0' }}>Telah Dibayarkan Kepada</td>
+                  <td style={{ width: '15px', padding: '5px 0' }}>:</td>
+                  <td style={{ borderBottom: '1px dashed #000000', padding: '5px 0', fontWeight: 'bold' }}>
+                    {printingTx.salaryRecipient || printingTx.description}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ fontWeight: 'bold', padding: '5px 0' }}>Untuk Pembayaran</td>
+                  <td>:</td>
+                  <td style={{ borderBottom: '1px dashed #000000', padding: '5px 0' }}>
+                    Pembayaran Gaji / Honorarium bulan <strong>{printingTx.salaryMonth || 'September 2026'}</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ fontWeight: 'bold', padding: '5px 0' }}>Rincian Pembayaran</td>
+                  <td>:</td>
+                  <td style={{ borderBottom: '1px dashed #000000', padding: '5px 0' }}>
+                    Gaji Pokok: <strong>{formatRupiah(printingTx.salaryBase || printingTx.amount)}</strong>
+                    {Number(printingTx.salaryDeduction || 0) > 0 && (
+                      <>
+                        {' '}
+                        | Potongan:{' '}
+                        <strong style={{ color: '#dc2626' }}>
+                          -{formatRupiah(printingTx.salaryDeduction || 0)}
+                        </strong>{' '}
+                        ({printingTx.salaryDeductionType === 'KASBON' ? 'Potong Kasbon' : 'Lainnya'})
+                      </>
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <td style={{ fontWeight: 'bold', padding: '5px 0' }}>Terbilang</td>
+                  <td>:</td>
+                  <td style={{ borderBottom: '1px dashed #000000', padding: '5px 0', fontStyle: 'italic' }}>
+                    # {angkaKeTerbilang(printingTx.amount)} Rupiah #
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Amount Box and Date */}
+            <table style={{ width: '100%' }}>
+              <tbody>
+                <tr>
+                  <td style={{ width: '50%', verticalAlign: 'top' }}>
+                    <div
+                      style={{
+                        backgroundColor: '#f1f5f9',
+                        border: '2px solid #000000',
+                        padding: '6px 12px',
+                        fontSize: '13px',
+                        fontWeight: 'bold',
+                        display: 'inline-block',
+                        fontFamily: 'monospace',
+                      }}
+                    >
+                      JUMLAH NETTO: {formatRupiah(printingTx.amount)}
+                    </div>
+                  </td>
+                  <td style={{ width: '50%', textAlign: 'right', fontSize: '11px', verticalAlign: 'middle', paddingRight: '10px' }}>
+                    Tanggal Bayar: <strong>{formatDateIndo(printingTx.date)}</strong>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Signatures */}
+            <table style={{ width: '100%', marginTop: '15px', fontSize: '11px' }}>
+              <tbody>
+                <tr>
+                  <td style={{ textAlign: 'center', width: '33%' }}>
+                    <p style={{ margin: '0 0 3px 0', fontSize: '10px' }}>Mengetahui,</p>
+                    <p style={{ margin: '0 0 6px 0', fontWeight: 'bold' }}>Ketua RT {profile.rtNumber}</p>
+                    <div style={{ height: '35px' }}></div>
+                    <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>
+                      {profile.officers?.find((o) => o.role.toLowerCase().includes('ketua'))?.name || profile.chairpersonName || 'Ketua RT'}
+                    </p>
+                  </td>
+                  <td style={{ textAlign: 'center', width: '33%' }}>
+                    <p style={{ margin: '0 0 3px 0', fontSize: '10px' }}>Yang Membayar,</p>
+                    <p style={{ margin: '0 0 6px 0', fontWeight: 'bold' }}>Bendahara RT</p>
+                    <div style={{ height: '35px' }}></div>
+                    <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>
+                      {profile.officers?.find((o) => o.role.toLowerCase().includes('bendahara'))?.name || profile.treasurerName || 'Bendahara RT'}
+                    </p>
+                  </td>
+                  <td style={{ textAlign: 'center', width: '33%' }}>
+                    <p style={{ margin: '0 0 3px 0', fontSize: '10px' }}>Penerima,</p>
+                    <p style={{ margin: '0 0 6px 0', fontWeight: 'bold' }}>Penerima</p>
+                    <div style={{ height: '35px' }}></div>
+                    <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>
+                      {(printingTx.salaryRecipient || '').split(' (')[0]}
+                    </p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       )}

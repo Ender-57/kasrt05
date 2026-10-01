@@ -60,6 +60,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     profile.secretaryPin ? resolveAdminPin(profile.secretaryPin) : '654321'
   );
 
+  // Collapsible accordion states
+  const [isIdentitasOpen, setIsIdentitasOpen] = useState(true);
+  const [isUserMgmtOpen, setIsUserMgmtOpen] = useState(false);
+  const [isOfficersOpen, setIsOfficersOpen] = useState(false);
+  const [isAddOfficerFormOpen, setIsAddOfficerFormOpen] = useState(false);
+
   // Backup Restore Modal & Notification States (No window.alert/confirm)
   const [restoreModalData, setRestoreModalData] = useState<{
     profile: RTProfile;
@@ -398,7 +404,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Identitas Form */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <div 
+          onClick={() => setIsIdentitasOpen(!isIdentitasOpen)}
+          className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between cursor-pointer select-none hover:bg-slate-800 transition-colors"
+        >
           <div className="flex items-center gap-2.5">
             <Building className="w-5 h-5 text-emerald-400" />
             <div>
@@ -408,175 +417,185 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </p>
             </div>
           </div>
-          {savedSuccess && (
-            <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold bg-emerald-950 px-2.5 py-1 rounded-lg">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Tersimpan
+          <div className="flex items-center gap-3">
+            {savedSuccess && (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold bg-emerald-950 px-2.5 py-1 rounded-lg">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Tersimpan
+              </span>
+            )}
+            <span className="text-slate-400 hover:text-white transition-colors text-xs font-bold whitespace-nowrap">
+              {isIdentitasOpen ? '▲ Sembunyikan' : '▼ Tampilkan'}
             </span>
-          )}
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="sm:col-span-2">
-              <label className="block font-semibold text-slate-700 mb-1">
-                Nama Lingkungan RT / Rukun Tetangga
-              </label>
-              <input
-                type="text"
-                required
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Nomor RT / RW
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  required
-                  value={form.rtNumber}
-                  onChange={(e) => setForm({ ...form, rtNumber: e.target.value })}
-                  placeholder="RT"
-                  className="w-1/2 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-center font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-                />
-                <span className="text-slate-400">/</span>
-                <input
-                  type="text"
-                  required
-                  value={form.rwNumber}
-                  onChange={(e) => setForm({ ...form, rwNumber: e.target.value })}
-                  placeholder="RW"
-                  className="w-1/2 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-center font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Desa
-              </label>
-              <input
-                type="text"
-                value={form.subdistrict}
-                onChange={(e) => setForm({ ...form, subdistrict: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">Kecamatan</label>
-              <input
-                type="text"
-                value={form.district}
-                onChange={(e) => setForm({ ...form, district: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Kota / Kabupaten
-              </label>
-              <input
-                type="text"
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block font-semibold text-slate-700">
-                  PIN Akses Pengurus (Mode Admin)
+        {isIdentitasOpen && (
+          <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Nama Lingkungan RT / Rukun Tetangga
                 </label>
-                <span className="text-[10px] text-slate-400 font-normal">
-                  Default: 123456
-                </span>
-              </div>
-              <div className="relative flex items-center">
                 <input
-                  type={showPin ? 'text' : 'password'}
-                  maxLength={10}
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value)}
-                  placeholder="Ketik 6 digit PIN..."
-                  className="w-full pl-3 pr-10 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono text-center tracking-widest focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  type="text"
+                  required
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setShowPin(!showPin);
-                  }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer focus:outline-hidden"
-                  title={showPin ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
-                  aria-label={showPin ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
-                >
-                  {showPin ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Nomor RT / RW
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    required
+                    value={form.rtNumber}
+                    onChange={(e) => setForm({ ...form, rtNumber: e.target.value })}
+                    placeholder="RT"
+                    className="w-1/2 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-center font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <span className="text-slate-400">/</span>
+                  <input
+                    type="text"
+                    required
+                    value={form.rwNumber}
+                    onChange={(e) => setForm({ ...form, rwNumber: e.target.value })}
+                    placeholder="RW"
+                    className="w-1/2 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-center font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="block font-semibold text-slate-700 mb-1">
-                Rekening Kas RT untuk Transfer Warga (Bank, No. Rek, & Nama Pemilik)
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Desa
+                </label>
                 <input
                   type="text"
-                  value={form.bankName || ''}
-                  onChange={(e) => setForm({ ...form, bankName: e.target.value })}
-                  placeholder="Bank Mandiri / BCA / BRI"
-                  className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  value={form.subdistrict}
+                  onChange={(e) => setForm({ ...form, subdistrict: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Kecamatan</label>
                 <input
                   type="text"
-                  value={form.bankAccountNo || ''}
-                  onChange={(e) => setForm({ ...form, bankAccountNo: e.target.value })}
-                  placeholder="Nomor Rekening"
-                  className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  value={form.district}
+                  onChange={(e) => setForm({ ...form, district: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Kota / Kabupaten
+                </label>
                 <input
                   type="text"
-                  value={form.bankAccountHolder || ''}
-                  onChange={(e) => setForm({ ...form, bankAccountHolder: e.target.value })}
-                  placeholder="Nama Pemilik Rekening (a.n)"
-                  className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
             </div>
-          </div>
 
-          <div className="pt-3 flex justify-end">
-            <button
-              type="submit"
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
-            >
-              <Save className="w-4 h-4" />
-              <span>Simpan Pengaturan Wilayah RT</span>
-            </button>
-          </div>
-        </form>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">
+                    PIN Akses Pengurus (Mode Admin)
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-normal">
+                    Default: 123456
+                  </span>
+                </div>
+                <div className="relative flex items-center">
+                  <input
+                    type={showPin ? 'text' : 'password'}
+                    maxLength={10}
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    placeholder="Ketik 6 digit PIN..."
+                    className="w-full pl-3 pr-10 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono text-center tracking-widest focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowPin(!showPin);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer focus:outline-hidden"
+                    title={showPin ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
+                    aria-label={showPin ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
+                  >
+                    {showPin ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Rekening Kas RT untuk Transfer Warga (Bank, No. Rek, & Nama Pemilik)
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    value={form.bankName || ''}
+                    onChange={(e) => setForm({ ...form, bankName: e.target.value })}
+                    placeholder="Bank Mandiri / BCA / BRI"
+                    className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <input
+                    type="text"
+                    value={form.bankAccountNo || ''}
+                    onChange={(e) => setForm({ ...form, bankAccountNo: e.target.value })}
+                    placeholder="Nomor Rekening"
+                    className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <input
+                    type="text"
+                    value={form.bankAccountHolder || ''}
+                    onChange={(e) => setForm({ ...form, bankAccountHolder: e.target.value })}
+                    placeholder="Nama Pemilik Rekening (a.n)"
+                    className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 flex justify-end">
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>Simpan Pengaturan Wilayah RT</span>
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
       {/* Pengelolaan User & Hak Akses (PIN) */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <div 
+          onClick={() => setIsUserMgmtOpen(!isUserMgmtOpen)}
+          className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between cursor-pointer select-none hover:bg-slate-800 transition-colors"
+        >
           <div className="flex items-center gap-2.5">
             <Shield className="w-5 h-5 text-emerald-400" />
             <div>
@@ -586,98 +605,114 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </p>
             </div>
           </div>
-          {savedSuccess && (
-            <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold bg-emerald-950 px-2.5 py-1 rounded-lg">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Tersimpan
+          <div className="flex items-center gap-3">
+            {savedSuccess && (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-semibold bg-emerald-950 px-2.5 py-1 rounded-lg">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Tersimpan
+              </span>
+            )}
+            <span className="text-slate-400 hover:text-white transition-colors text-xs font-bold whitespace-nowrap">
+              {isUserMgmtOpen ? '▲ Sembunyikan' : '▼ Tampilkan'}
             </span>
-          )}
-        </div>
-
-        <div className="p-6 space-y-4 text-xs">
-          <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-900">
-            <Info className="w-4.5 h-4.5 text-emerald-700 shrink-0 mt-0.5" />
-            <div>
-              <strong>Panduan Hak Akses User Pengurus RT:</strong>
-              <ul className="list-disc list-inside mt-1 space-y-1 text-emerald-950/90 font-medium">
-                <li><strong>Admin / Bendahara (PIN Utama):</strong> Memiliki kontrol penuh atas seluruh sistem (mencatat iuran bulanan/swadaya, mutasi buku kas, pengelolaan hutang-piutang, reset data, serta konfigurasi PIN).</li>
-                <li><strong>Sekretaris (PIN Terbatas):</strong> Memiliki hak akses khusus untuk melakukan input dan edit data kependudukan warga di menu <strong>"Data Warga"</strong>. Tab lain seperti Iuran, Kas, dan Pengaturan bersifat baca-saja (read-only) demi menjaga akuntabilitas keuangan.</li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* PIN Admin / Bendahara */}
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-800 text-xs sm:text-sm">1. Admin & Bendahara PIN (Akses Penuh)</span>
-                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold text-[9px] uppercase">Full Access</span>
-              </div>
-              <p className="text-[11px] text-slate-500">PIN utama untuk mengelola iuran, buku kas, laporan keuangan, dan seluruh pengaturan sistem.</p>
-              
-              <div className="relative flex items-center pt-1.5">
-                <input
-                  type={showPin ? 'text' : 'password'}
-                  maxLength={10}
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value)}
-                  placeholder="Ketik 6 digit PIN Admin..."
-                  className="w-full pl-3 pr-10 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono text-center tracking-widest font-bold text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPin(!showPin)}
-                  className="absolute right-2.5 top-[18px] flex items-center justify-center p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer focus:outline-hidden"
-                >
-                  {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* PIN Sekretaris */}
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-800 text-xs sm:text-sm">2. Sekretaris PIN (Akses Edit Data Warga)</span>
-                <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-bold text-[9px] uppercase">Warga Only</span>
-              </div>
-              <p className="text-[11px] text-slate-500">PIN khusus untuk Sekretaris RT. Hanya diberikan wewenang untuk melakukan input dan edit data kependudukan warga.</p>
-              
-              <div className="relative flex items-center pt-1.5">
-                <input
-                  type={showSecPin ? 'text' : 'password'}
-                  maxLength={10}
-                  value={secPinInput}
-                  onChange={(e) => setSecPinInput(e.target.value)}
-                  placeholder="Ketik 6 digit PIN Sekretaris..."
-                  className="w-full pl-3 pr-10 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono text-center tracking-widest font-bold text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowSecPin(!showSecPin)}
-                  className="absolute right-2.5 top-[18px] flex items-center justify-center p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer focus:outline-hidden"
-                >
-                  {showSecPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-2 flex justify-end">
-            <button
-              type="button"
-              onClick={handleSaveUserPins}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
-            >
-              <Save className="w-4 h-4" />
-              <span>Simpan Konfigurasi PIN Pengurus</span>
-            </button>
           </div>
         </div>
+
+        {isUserMgmtOpen && (
+          <div className="p-6 space-y-4 text-xs">
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-900">
+              <Info className="w-4.5 h-4.5 text-emerald-700 shrink-0 mt-0.5" />
+              <div>
+                <strong>Panduan Hak Akses User Pengurus RT:</strong>
+                <ul className="list-disc list-inside mt-1 space-y-1 text-emerald-950/90 font-medium">
+                  <li><strong>Admin / Bendahara (PIN Utama):</strong> Memiliki kontrol penuh atas seluruh sistem (mencatat iuran bulanan/swadaya, mutasi buku kas, pengelolaan hutang-piutang, reset data, serta konfigurasi PIN).</li>
+                  <li><strong>Sekretaris (PIN Terbatas):</strong> Memiliki hak akses khusus untuk melakukan input dan edit data kependudukan warga di menu <strong>"Data Warga"</strong>. Tab lain seperti Iuran, Kas, dan Pengaturan bersifat baca-saja (read-only) demi menjaga akuntabilitas keuangan.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* PIN Admin / Bendahara */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 text-xs sm:text-sm">1. Admin & Bendahara PIN (Akses Penuh)</span>
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold text-[9px] uppercase">Full Access</span>
+                </div>
+                <p className="text-[11px] text-slate-500">PIN utama untuk mengelola iuran, buku kas, laporan keuangan, and seluruh pengaturan sistem.</p>
+                
+                <div className="relative flex items-center pt-1.5">
+                  <input
+                    type={showPin ? 'text' : 'password'}
+                    maxLength={10}
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    placeholder="Ketik 6 digit PIN Admin..."
+                    className="w-full pl-3 pr-10 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono text-center tracking-widest font-bold text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowPin(!showPin);
+                    }}
+                    className="absolute right-2.5 top-[18px] flex items-center justify-center p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer focus:outline-hidden"
+                  >
+                    {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* PIN Sekretaris */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 text-xs sm:text-sm">2. Sekretaris PIN (Akses Edit Data Warga)</span>
+                  <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-bold text-[9px] uppercase">Warga Only</span>
+                </div>
+                <p className="text-[11px] text-slate-500">PIN khusus untuk Sekretaris RT. Hanya diberikan wewenang untuk melakukan input dan edit data kependudukan warga.</p>
+                
+                <div className="relative flex items-center pt-1.5">
+                  <input
+                    type={showSecPin ? 'text' : 'password'}
+                    maxLength={10}
+                    value={secPinInput}
+                    onChange={(e) => setSecPinInput(e.target.value)}
+                    placeholder="Ketik 6 digit PIN Sekretaris..."
+                    className="w-full pl-3 pr-10 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono text-center tracking-widest font-bold text-sm focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowSecPin(!showSecPin);
+                    }}
+                    className="absolute right-2.5 top-[18px] flex items-center justify-center p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer focus:outline-hidden"
+                  >
+                    {showSecPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={handleSaveUserPins}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>Simpan Konfigurasi PIN Pengurus</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Susunan Pengurus & Periode Menjabat Card */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="px-6 py-4 bg-emerald-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div 
+          onClick={() => setIsOfficersOpen(!isOfficersOpen)}
+          className="px-6 py-4 bg-emerald-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer select-none hover:bg-emerald-800 transition-colors"
+        >
           <div className="flex items-center gap-2.5">
             <Users className="w-5 h-5 text-emerald-300" />
             <div>
@@ -687,139 +722,160 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </p>
             </div>
           </div>
-          <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-800 text-emerald-100 rounded-lg w-fit">
-            {currentOfficers.length} Pejabat Terdaftar
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold px-2.5 py-1 bg-emerald-800 text-emerald-100 rounded-lg w-fit">
+              {currentOfficers.length} Pejabat Terdaftar
+            </span>
+            <span className="text-emerald-300 hover:text-white transition-colors text-xs font-bold whitespace-nowrap">
+              {isOfficersOpen ? '▲ Sembunyikan' : '▼ Tampilkan'}
+            </span>
+          </div>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Info Banner */}
-          <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-900">
-            <Info className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-            <div>
-              <strong>Kesesuaian Tanda Tangan Kuitansi Otomatis:</strong> Saat kuitansi dicetak atau diunduh, sistem secara otomatis mencocokkan tanggal pembayaran/input kuitansi dengan pejabat Bendahara yang menjabat pada tanggal tersebut.
-            </div>
-          </div>
-
-          {/* Form Tambah / Input Pengurus Baru */}
-          <form onSubmit={handleAddOfficer} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs space-y-3">
-            <div className="font-bold text-slate-800 flex items-center gap-1.5 text-sm">
-              <Plus className="w-4 h-4 text-emerald-600" />
-              <span>Tambah Pejabat Pengurus / Seksi RT Baru</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {isOfficersOpen && (
+          <div className="p-6 space-y-6">
+            {/* Info Banner */}
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-900">
+              <Info className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Jabatan / Posisi Pengurus
-                </label>
-                <select
-                  value={newOfficerRole}
-                  onChange={(e) => setNewOfficerRole(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer"
-                >
-                  <option value="Ketua RT">Ketua RT</option>
-                  <option value="Sekretaris">Sekretaris RT</option>
-                  <option value="Bendahara">Bendahara RT (Penandatangan Kuitansi)</option>
-                  <option value="Seksi Keamanan & Ketertiban">Seksi Keamanan & Ketertiban</option>
-                  <option value="Seksi Kebersihan & Lingkungan">Seksi Kebersihan & Lingkungan</option>
-                  <option value="Seksi Sosial, Humas & Keagamaan">Seksi Sosial, Humas & Keagamaan</option>
-                  <option value="Seksi Pembangunan & Sarana">Seksi Pembangunan & Sarana</option>
-                  <option value="Seksi Pemuda & Olahraga">Seksi Pemuda & Olahraga</option>
-                  <option value="Lainnya">Lainnya (Ketik Bebas / Free Text)...</option>
-                </select>
-                {newOfficerRole === 'Lainnya' && (
-                  <input
-                    type="text"
-                    required
-                    value={customRoleInput}
-                    onChange={(e) => setCustomRoleInput(e.target.value)}
-                    placeholder="Ketik nama seksi / jabatan..."
-                    className="w-full mt-2 px-3 py-1.5 bg-white border border-emerald-300 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500"
-                  />
-                )}
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Nama Lengkap Pejabat Pengurus
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newOfficerName}
-                  onChange={(e) => setNewOfficerName(e.target.value)}
-                  placeholder="Contoh: Bpk. Hendra Cahyono"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Nomor HP / WhatsApp (Opsional)
-                </label>
-                <input
-                  type="text"
-                  value={newOfficerPhone}
-                  onChange={(e) => setNewOfficerPhone(e.target.value)}
-                  placeholder="Contoh: 081234567890"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500 font-mono"
-                />
+                <strong>Kesesuaian Tanda Tangan Kuitansi Otomatis:</strong> Saat kuitansi dicetak atau diunduh, sistem secara otomatis mencocokkan tanggal pembayaran/input kuitansi dengan pejabat Bendahara yang menjabat pada tanggal tersebut.
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Mulai Menjabat (Tgl / Periode)</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={newOfficerStart}
-                  onChange={(e) => setNewOfficerStart(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500 font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Akhir Menjabat (Kosongkan jika aktif)</span>
-                </label>
-                <input
-                  type="date"
-                  value={newOfficerEnd}
-                  onChange={(e) => setNewOfficerEnd(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500 font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Catatan / Keterangan Jabatan
-                </label>
-                <input
-                  type="text"
-                  value={newOfficerNotes}
-                  onChange={(e) => setNewOfficerNotes(e.target.value)}
-                  placeholder="Contoh: SK No. 01/RT05/2024"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-1">
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-xl transition-colors cursor-pointer shadow-xs"
+            {/* Form Tambah / Input Pengurus Baru */}
+            <form onSubmit={handleAddOfficer} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs space-y-3">
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsAddOfficerFormOpen(!isAddOfficerFormOpen);
+                }}
+                className="font-bold text-slate-800 flex items-center justify-between text-sm cursor-pointer select-none"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Simpan Pejabat Pengurus</span>
-              </button>
-            </div>
-          </form>
+                <div className="flex items-center gap-1.5">
+                  <Plus className="w-4 h-4 text-emerald-600" />
+                  <span>Tambah Pejabat Pengurus / Seksi RT Baru</span>
+                </div>
+                <span className="text-slate-500 text-xs font-semibold">
+                  {isAddOfficerFormOpen ? '▲ Sembunyikan Form' : '▼ Tambah Pengurus (Klik untuk buka)'}
+                </span>
+              </div>
+
+              {isAddOfficerFormOpen && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        Jabatan / Posisi Pengurus
+                      </label>
+                      <select
+                        value={newOfficerRole}
+                        onChange={(e) => setNewOfficerRole(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer"
+                      >
+                        <option value="Ketua RT">Ketua RT</option>
+                        <option value="Sekretaris">Sekretaris RT</option>
+                        <option value="Bendahara">Bendahara RT (Penandatangan Kuitansi)</option>
+                        <option value="Seksi Keamanan & Ketertiban">Seksi Keamanan & Ketertiban</option>
+                        <option value="Seksi Kebersihan & Lingkungan">Seksi Kebersihan & Lingkungan</option>
+                        <option value="Seksi Sosial, Humas & Keagamaan">Seksi Sosial, Humas & Keagamaan</option>
+                        <option value="Seksi Pembangunan & Sarana">Seksi Pembangunan & Sarana</option>
+                        <option value="Seksi Pemuda & Olahraga">Seksi Pemuda & Olahraga</option>
+                        <option value="Lainnya">Lainnya (Ketik Bebas / Free Text)...</option>
+                      </select>
+                      {newOfficerRole === 'Lainnya' && (
+                        <input
+                          type="text"
+                          required
+                          value={customRoleInput}
+                          onChange={(e) => setCustomRoleInput(e.target.value)}
+                          placeholder="Ketik nama seksi / jabatan..."
+                          className="w-full mt-2 px-3 py-1.5 bg-white border border-emerald-300 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                        />
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        Nama Lengkap Pejabat Pengurus
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newOfficerName}
+                        onChange={(e) => setNewOfficerName(e.target.value)}
+                        placeholder="Contoh: Bpk. Hendra Cahyono"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        Nomor HP / WhatsApp (Opsional)
+                      </label>
+                      <input
+                        type="text"
+                        value={newOfficerPhone}
+                        onChange={(e) => setNewOfficerPhone(e.target.value)}
+                        placeholder="Contoh: 081234567890"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Mulai Menjabat (Tgl / Periode)</span>
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={newOfficerStart}
+                        onChange={(e) => setNewOfficerStart(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Akhir Menjabat (Kosongkan jika aktif)</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={newOfficerEnd}
+                        onChange={(e) => setNewOfficerEnd(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500 font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        Catatan / Keterangan Jabatan
+                      </label>
+                      <input
+                        type="text"
+                        value={newOfficerNotes}
+                        onChange={(e) => setNewOfficerNotes(e.target.value)}
+                        placeholder="Contoh: SK No. 01/RT05/2024"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-xl transition-colors cursor-pointer shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Simpan Pejabat Pengurus</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </form>
 
           {/* Tabel Daftar Pengurus RT & Masa Jabatan */}
           <div className="border border-slate-200 rounded-xl overflow-x-auto touch-pan-x shadow-2xs">
@@ -911,7 +967,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </table>
           </div>
         </div>
-      </div>
+      )}
+    </div>
 
       {/* Delete Confirmation Modal */}
       {deletingOfficer && (

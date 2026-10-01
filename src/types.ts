@@ -78,6 +78,7 @@ export type TransactionCategory =
   | 'Kegiatan Warga & HUT RI'
   | 'Sosial & Santunan Warga'
   | 'Kas & Operasional RT'
+  | 'Gaji & Honor'
   | 'Lain-lain';
 
 export interface CashTransaction {
@@ -93,6 +94,14 @@ export interface CashTransaction {
   notes?: string;
   attachmentName?: string;
   attachmentUrl?: string;
+  // Salary Management optional fields
+  salaryBase?: number; // Gaji Pokok
+  salaryDeduction?: number; // Potongan
+  salaryDeductionType?: 'KASBON' | 'LAINNYA'; // Jenis Potongan
+  salaryRecipient?: string; // Nama Penerima
+  salaryMonth?: string; // Bulan Gaji
+  linkedDebtId?: string; // ID piutang yang dikoneksikan
+  linkedDebtIds?: string[]; // ID piutang yang dikoneksikan (multi-select)
 }
 
 export interface CommitteeOfficer {

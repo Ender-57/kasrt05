@@ -66,7 +66,14 @@
         "referenceId": { "type": "string" },
         "notes": { "type": "string" },
         "attachmentName": { "type": "string" },
-        "attachmentUrl": { "type": "string" }
+        "attachmentUrl": { "type": "string" },
+        "salaryBase": { "type": "number" },
+        "salaryDeduction": { "type": "number" },
+        "salaryDeductionType": { "type": "string" },
+        "salaryRecipient": { "type": "string" },
+        "salaryMonth": { "type": "string" },
+        "linkedDebtId": { "type": "string" },
+        "linkedDebtIds": { "type": "array" }
       },
       "required": ["id", "date", "type", "category", "description", "amount", "recordedBy"]
     },

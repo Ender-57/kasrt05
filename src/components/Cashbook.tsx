@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import * as htmlToImage from 'html-to-image';
 import {
   TrendingUp,
   TrendingDown,
@@ -118,7 +117,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const [copiedBankNo, setCopiedBankNo] = useState(false);
 
   // Period filter states
-  const [periodType, setPeriodType] = useState<PeriodType>('BULANAN');
+  const [periodType, setPeriodType] = useState<PeriodType>('SEMUA');
   const [selectedYear, setSelectedYear] = useState<string>('2026');
   const [selectedMonth, setSelectedMonth] = useState<MonthKey>('September');
   const [selectedQuarter, setSelectedQuarter] = useState<string>('Q3');
@@ -188,7 +187,6 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const [salaryNotes, setSalaryNotes] = useState('');
   const [salaryDate, setSalaryDate] = useState(() => getTodayJakarta());
   const [salaryRecipientType, setSalaryRecipientType] = useState<'OFFICER' | 'MANUAL'>('OFFICER');
-  const [printingTx, setPrintingTx] = useState<CashTransaction | null>(null);
 
   const salaryTransactions = useMemo(() => {
     return transactions.filter((tx) => tx.category === 'Gaji & Honor');
@@ -311,149 +309,269 @@ export const Cashbook: React.FC<CashbookProps> = ({
     return num.toString();
   };
 
-  const handlePrintSalaryReceipt = (tx: CashTransaction) => {
-    setPrintingTx(tx);
+  const drawReceiptToPng = (tx: CashTransaction): string => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1480;
+    canvas.height = 920;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return '';
+
+    // Fill background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw double border
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+    ctx.lineWidth = 2;
+    ctx.strokeRect(30, 30, canvas.width - 60, canvas.height - 60);
+
+    const fontMono = (size: number, bold = false) => `${bold ? 'bold ' : ''}${size}px "Courier New", Courier, monospace`;
+
+    // Header Left: RT Info
+    ctx.fillStyle = '#000000';
+    ctx.font = fontMono(22, true);
+    ctx.textAlign = 'left';
+    ctx.fillText(`RT ${profile.rtNumber || '05'}`, 60, 85);
+
+    // Header Center: Title
+    ctx.font = fontMono(28, true);
+    ctx.textAlign = 'center';
+    ctx.fillText('KUITANSI PEMBAYARAN GAJI & HONOR', canvas.width / 2, 85);
+
+    // Header Right: Metadata
+    const receiptNo = tx.receiptNumber || `SLR-${tx.id.split('-')[1] || tx.id.slice(-6)}`;
+    ctx.font = fontMono(18, false);
+    ctx.textAlign = 'right';
+    ctx.fillText(`No: ${receiptNo}`, canvas.width - 60, 65);
+    ctx.fillText(`RT ${profile.rtNumber || '05'} / RW ${profile.rwNumber || '08'}`, canvas.width - 60, 90);
+    ctx.fillText(`Desa ${profile.subdistrict || 'Satriajaya'}`, canvas.width - 60, 115);
+
+    // Header line
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(50, 135);
+    ctx.lineTo(canvas.width - 50, 135);
+    ctx.stroke();
+
+    // Content rows
+    const rowStartY = 200;
+    const rowSpacing = 70;
+    const drawRow = (y: number, label: string, value: string, isValueBold = false) => {
+      ctx.fillStyle = '#000000';
+      ctx.font = fontMono(20, true);
+      ctx.textAlign = 'left';
+      ctx.fillText(label, 60, y);
+      ctx.fillText(':', 340, y);
+
+      ctx.font = fontMono(20, isValueBold);
+      ctx.fillText(value, 370, y);
+
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(370, y + 8);
+      ctx.lineTo(canvas.width - 60, y + 8);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    };
+
+    drawRow(rowStartY, 'Telah Dibayarkan Kepada', tx.salaryRecipient || tx.description, true);
+    drawRow(rowStartY + rowSpacing, 'Untuk Pembayaran', `Pembayaran Gaji / Honorarium bulan ${tx.salaryMonth || 'September 2026'}`);
+
+    const baseAmount = tx.salaryBase || tx.amount;
+    const deductionAmount = tx.salaryDeduction || 0;
+    let rincianText = `Gaji Pokok: ${formatRupiah(baseAmount)}`;
+    if (deductionAmount > 0) {
+      rincianText += ` | Potongan: -${formatRupiah(deductionAmount)} (${tx.salaryDeductionType === 'KASBON' ? 'Potong Kasbon' : 'Lainnya'})`;
+    }
+    drawRow(rowStartY + rowSpacing * 2, 'Rincian Pembayaran', rincianText);
+
+    const terbilangText = `# ${angkaKeTerbilang(tx.amount)} Rupiah #`;
+    drawRow(rowStartY + rowSpacing * 3, 'Terbilang', terbilangText, false);
+
+    // Amount Box & Date
+    const bottomY = 560;
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(60, bottomY, 520, 80);
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(60, bottomY, 520, 80);
+
+    ctx.fillStyle = '#000000';
+    ctx.font = fontMono(24, true);
+    ctx.textAlign = 'left';
+    ctx.fillText(`JUMLAH NETTO: ${formatRupiah(tx.amount)}`, 85, bottomY + 48);
+
+    ctx.font = fontMono(20, false);
+    ctx.textAlign = 'right';
+    ctx.fillText(`Tanggal Bayar: ${formatDateIndo(tx.date)}`, canvas.width - 60, bottomY + 48);
+
+    // Signatures
+    const sigY = 700;
+    const colWidth = canvas.width / 3;
+
+    const chairpersonOfficer = profile.officers?.find((o) => o.role.toLowerCase().includes('ketua'));
+    const chairpersonName = chairpersonOfficer?.name || profile.chairpersonName || 'Ketua RT';
+    const treasurerOfficer = profile.officers?.find((o) => o.role.toLowerCase().includes('bendahara'));
+    const treasurerName = treasurerOfficer?.name || profile.treasurerName || 'Bendahara RT';
+    const receiverName = (tx.salaryRecipient || '').split(' (')[0];
+
+    const drawSignature = (colIndex: number, title1: string, title2: string, name: string) => {
+      const centerX = colIndex * colWidth + colWidth / 2;
+      ctx.textAlign = 'center';
+
+      ctx.fillStyle = '#000000';
+      ctx.font = fontMono(18, false);
+      ctx.fillText(title1, centerX, sigY);
+      ctx.font = fontMono(18, true);
+      ctx.fillText(title2, centerX, sigY + 25);
+
+      ctx.font = fontMono(18, true);
+      ctx.fillText(name, centerX, sigY + 130);
+
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#000000';
+      ctx.beginPath();
+      const textWidth = ctx.measureText(name).width;
+      ctx.moveTo(centerX - textWidth / 2 - 10, sigY + 138);
+      ctx.lineTo(centerX + textWidth / 2 + 10, sigY + 138);
+      ctx.stroke();
+    };
+
+    drawSignature(0, 'Mengetahui,', `Ketua RT ${profile.rtNumber || '05'}`, chairpersonName);
+    drawSignature(1, 'Yang Membayar,', 'Bendahara RT', treasurerName);
+    drawSignature(2, 'Penerima,', '', receiverName);
+
+    return canvas.toDataURL('image/png');
   };
 
-  useEffect(() => {
-    if (printingTx) {
-      const generatePng = async () => {
-        // Wait a brief tick for React to render the offscreen DOM template
-        await new Promise((resolve) => setTimeout(resolve, 150));
-        const el = document.getElementById('hidden-receipt-print-template');
-        if (el) {
-          try {
-            const dataUrl = await htmlToImage.toPng(el, {
-              pixelRatio: 2,
-              backgroundColor: '#ffffff',
-            });
-            
-            const win = window.open('', '_blank');
-            if (win) {
-              win.document.write(`
-                <html>
-                  <head>
-                    <title>KUITANSI GAJI - ${printingTx.salaryRecipient || printingTx.description}</title>
-                    <style>
-                      body {
-                        margin: 0;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        justify-content: center;
-                        background-color: #f1f5f9;
-                        font-family: system-ui, -apple-system, sans-serif;
-                        padding: 20px;
-                        min-height: 100vh;
-                        box-sizing: border-box;
-                      }
-                      .container {
-                        background: white;
-                        padding: 24px;
-                        border-radius: 16px;
-                        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-                        text-align: center;
-                        max-width: 780px;
-                        width: 100%;
-                        box-sizing: border-box;
-                      }
-                      img {
-                        max-width: 100%;
-                        height: auto;
-                        border: 1px solid #e2e8f0;
-                        border-radius: 8px;
-                        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-                      }
-                      .btn-group {
-                        margin-top: 20px;
-                        display: flex;
-                        gap: 12px;
-                        justify-content: center;
-                      }
-                      .btn {
-                        padding: 10px 20px;
-                        font-size: 13px;
-                        font-weight: 600;
-                        border-radius: 10px;
-                        cursor: pointer;
-                        border: none;
-                        transition: all 0.2s;
-                        text-decoration: none;
-                        display: inline-flex;
-                        align-items: center;
-                        gap: 6px;
-                      }
-                      .btn-primary {
-                        background-color: #0f172a;
-                        color: white;
-                      }
-                      .btn-primary:hover {
-                        background-color: #1e293b;
-                      }
-                      .btn-secondary {
-                        background-color: #f1f5f9;
-                        color: #0f172a;
-                        border: 1px solid #e2e8f0;
-                      }
-                      .btn-secondary:hover {
-                        background-color: #e2e8f0;
-                      }
-                      @media print {
-                        .btn-group, h3, p {
-                          display: none !important;
-                        }
-                        body {
-                          background: none;
-                          padding: 0;
-                          min-height: auto;
-                        }
-                        .container {
-                          box-shadow: none;
-                          padding: 0;
-                          max-width: 100%;
-                        }
-                        img {
-                          border: none;
-                          box-shadow: none;
-                          width: 100%;
-                        }
-                      }
-                    </style>
-                  </head>
-                  <body>
-                    <div class="container">
-                      <h3 style="margin: 0 0 6px 0; color: #0f172a; font-size: 16px; font-weight: 700;">Kuitansi Pembayaran Gaji</h3>
-                      <p style="font-size: 12px; color: #64748b; margin: 0 0 20px 0;">Format PNG siap cetak. Gunakan tombol di bawah atau klik kanan gambar untuk menyimpan.</p>
-                      <img src="${dataUrl}" alt="Kuitansi Gaji" />
-                      <div class="btn-group">
-                        <button class="btn btn-primary" onclick="window.print()">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-printer"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-                          Cetak Kuitansi (PDF)
-                        </button>
-                        <a href="${dataUrl}" download="Kuitansi_Gaji_${(printingTx.salaryRecipient || 'Penerima').replace(/\\s+/g, '_')}_${printingTx.salaryMonth || ''}.png" class="btn btn-secondary">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
-                          Unduh Gambar PNG
-                        </a>
-                      </div>
-                    </div>
-                  </body>
-                </html>
-              `);
-              win.document.close();
-            } else {
-              alert('Gagal membuka jendela baru. Pastikan pop-up diperbolehkan.');
-            }
-          } catch (err) {
-            console.error('Failed to render kuitansi image:', err);
-            alert('Gagal membuat gambar kuitansi.');
-          } finally {
-            setPrintingTx(null);
-          }
-        }
-      };
-      generatePng();
+  const handlePrintSalaryReceipt = (tx: CashTransaction) => {
+    try {
+      const dataUrl = drawReceiptToPng(tx);
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(`
+          <html>
+            <head>
+              <title>KUITANSI GAJI - ${tx.salaryRecipient || tx.description}</title>
+              <style>
+                body {
+                  margin: 0;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  background-color: #f1f5f9;
+                  font-family: system-ui, -apple-system, sans-serif;
+                  padding: 20px;
+                  min-height: 100vh;
+                  box-sizing: border-box;
+                }
+                .container {
+                  background: white;
+                  padding: 24px;
+                  border-radius: 16px;
+                  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+                  text-align: center;
+                  max-width: 780px;
+                  width: 100%;
+                  box-sizing: border-box;
+                }
+                img {
+                  max-width: 100%;
+                  height: auto;
+                  border: 1px solid #e2e8f0;
+                  border-radius: 8px;
+                  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+                }
+                .btn-group {
+                  margin-top: 20px;
+                  display: flex;
+                  gap: 12px;
+                  justify-content: center;
+                }
+                .btn {
+                  padding: 10px 20px;
+                  font-size: 13px;
+                  font-weight: 600;
+                  border-radius: 10px;
+                  cursor: pointer;
+                  border: none;
+                  transition: all 0.2s;
+                  text-decoration: none;
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
+                }
+                .btn-primary {
+                  background-color: #0f172a;
+                  color: white;
+                }
+                .btn-primary:hover {
+                  background-color: #1e293b;
+                }
+                .btn-secondary {
+                  background-color: #f1f5f9;
+                  color: #0f172a;
+                  border: 1px solid #e2e8f0;
+                }
+                .btn-secondary:hover {
+                  background-color: #e2e8f0;
+                }
+                @media print {
+                  .btn-group, h3, p {
+                    display: none !important;
+                  }
+                  body {
+                    background: none;
+                    padding: 0;
+                    min-height: auto;
+                  }
+                  .container {
+                    box-shadow: none;
+                    padding: 0;
+                    max-width: 100%;
+                  }
+                  img {
+                    border: none;
+                    box-shadow: none;
+                    width: 100%;
+                  }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h3 style="margin: 0 0 6px 0; color: #0f172a; font-size: 16px; font-weight: 700;">Kuitansi Pembayaran Gaji</h3>
+                <p style="font-size: 12px; color: #64748b; margin: 0 0 20px 0;">Format PNG siap cetak. Gunakan tombol di bawah atau klik kanan gambar untuk menyimpan.</p>
+                <img src="${dataUrl}" alt="Kuitansi Gaji" />
+                <div class="btn-group">
+                  <button class="btn btn-primary" onclick="window.print()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-printer"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+                    Cetak Kuitansi (PDF)
+                  </button>
+                  <a href="${dataUrl}" download="Kuitansi_Gaji_${(tx.salaryRecipient || 'Penerima').replace(/\s+/g, '_')}_${tx.salaryMonth || ''}.png" class="btn btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                    Unduh Gambar PNG
+                  </a>
+                </div>
+              </div>
+            </body>
+          </html>
+        `);
+        win.document.close();
+      } else {
+        alert('Gagal membuka jendela baru. Pastikan pop-up diperbolehkan.');
+      }
+    } catch (err) {
+      console.error('Failed to generate PNG receipt:', err);
+      alert('Gagal membuat gambar kuitansi.');
     }
-  }, [printingTx]);
+  };
 
   useEffect(() => {
     setIsDriveConnected(Boolean(getAccessToken()));
@@ -3008,158 +3126,6 @@ export const Cashbook: React.FC<CashbookProps> = ({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-      {/* Hidden PNG Receipt Generation Template */}
-      {printingTx && (
-        <div
-          id="hidden-receipt-print-template"
-          style={{
-            position: 'absolute',
-            left: '-9999px',
-            top: '-9999px',
-            width: '740px',
-            height: '460px',
-            backgroundColor: '#ffffff',
-            color: '#000000',
-            fontFamily: "'Courier New', Courier, monospace",
-            padding: '12px',
-            boxSizing: 'border-box',
-          }}
-        >
-          <div
-            style={{
-              border: '3px double #000000',
-              padding: '12px',
-              borderRadius: '4px',
-              height: '100%',
-              boxSizing: 'border-box',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-            }}
-          >
-            {/* Header */}
-            <table style={{ width: '100%', borderBottom: '2px solid #000000', paddingBottom: '6px', marginBottom: '10px' }}>
-              <tbody>
-                <tr>
-                  <td style={{ width: '80px', textAlign: 'left', fontWeight: 'bold', fontSize: '11px' }}>
-                    RT {profile.rtNumber}
-                  </td>
-                  <td style={{ textAlign: 'center', fontSize: '14px', fontWeight: 'bold', letterSpacing: '0.5px' }}>
-                    KUITANSI PEMBAYARAN GAJI & HONOR
-                  </td>
-                  <td style={{ textAlign: 'right', fontSize: '9px', lineHeight: '1.2' }}>
-                    No: <span style={{ fontWeight: 'bold' }}>{printingTx.receiptNumber || `SLR-${printingTx.id.split('-')[1] || printingTx.id.slice(-6)}`}</span><br />
-                    RT {profile.rtNumber} / RW {profile.rwNumber}<br />
-                    Desa {profile.subdistrict}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Content */}
-            <table style={{ width: '100%', marginBottom: '10px', borderCollapse: 'collapse', fontSize: '11px' }}>
-              <tbody>
-                <tr>
-                  <td style={{ width: '150px', fontWeight: 'bold', padding: '5px 0' }}>Telah Dibayarkan Kepada</td>
-                  <td style={{ width: '15px', padding: '5px 0' }}>:</td>
-                  <td style={{ borderBottom: '1px dashed #000000', padding: '5px 0', fontWeight: 'bold' }}>
-                    {printingTx.salaryRecipient || printingTx.description}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ fontWeight: 'bold', padding: '5px 0' }}>Untuk Pembayaran</td>
-                  <td>:</td>
-                  <td style={{ borderBottom: '1px dashed #000000', padding: '5px 0' }}>
-                    Pembayaran Gaji / Honorarium bulan <strong>{printingTx.salaryMonth || 'September 2026'}</strong>
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ fontWeight: 'bold', padding: '5px 0' }}>Rincian Pembayaran</td>
-                  <td>:</td>
-                  <td style={{ borderBottom: '1px dashed #000000', padding: '5px 0' }}>
-                    Gaji Pokok: <strong>{formatRupiah(printingTx.salaryBase || printingTx.amount)}</strong>
-                    {Number(printingTx.salaryDeduction || 0) > 0 && (
-                      <>
-                        {' '}
-                        | Potongan:{' '}
-                        <strong style={{ color: '#dc2626' }}>
-                          -{formatRupiah(printingTx.salaryDeduction || 0)}
-                        </strong>{' '}
-                        ({printingTx.salaryDeductionType === 'KASBON' ? 'Potong Kasbon' : 'Lainnya'})
-                      </>
-                    )}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ fontWeight: 'bold', padding: '5px 0' }}>Terbilang</td>
-                  <td>:</td>
-                  <td style={{ borderBottom: '1px dashed #000000', padding: '5px 0', fontStyle: 'italic' }}>
-                    # {angkaKeTerbilang(printingTx.amount)} Rupiah #
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Amount Box and Date */}
-            <table style={{ width: '100%' }}>
-              <tbody>
-                <tr>
-                  <td style={{ width: '50%', verticalAlign: 'top' }}>
-                    <div
-                      style={{
-                        backgroundColor: '#f1f5f9',
-                        border: '2px solid #000000',
-                        padding: '6px 12px',
-                        fontSize: '13px',
-                        fontWeight: 'bold',
-                        display: 'inline-block',
-                        fontFamily: 'monospace',
-                      }}
-                    >
-                      JUMLAH NETTO: {formatRupiah(printingTx.amount)}
-                    </div>
-                  </td>
-                  <td style={{ width: '50%', textAlign: 'right', fontSize: '11px', verticalAlign: 'middle', paddingRight: '10px' }}>
-                    Tanggal Bayar: <strong>{formatDateIndo(printingTx.date)}</strong>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Signatures */}
-            <table style={{ width: '100%', marginTop: '15px', fontSize: '11px' }}>
-              <tbody>
-                <tr>
-                  <td style={{ textAlign: 'center', width: '33%' }}>
-                    <p style={{ margin: '0 0 3px 0', fontSize: '10px' }}>Mengetahui,</p>
-                    <p style={{ margin: '0 0 6px 0', fontWeight: 'bold' }}>Ketua RT {profile.rtNumber}</p>
-                    <div style={{ height: '35px' }}></div>
-                    <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>
-                      {profile.officers?.find((o) => o.role.toLowerCase().includes('ketua'))?.name || profile.chairpersonName || 'Ketua RT'}
-                    </p>
-                  </td>
-                  <td style={{ textAlign: 'center', width: '33%' }}>
-                    <p style={{ margin: '0 0 3px 0', fontSize: '10px' }}>Yang Membayar,</p>
-                    <p style={{ margin: '0 0 6px 0', fontWeight: 'bold' }}>Bendahara RT</p>
-                    <div style={{ height: '35px' }}></div>
-                    <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>
-                      {profile.officers?.find((o) => o.role.toLowerCase().includes('bendahara'))?.name || profile.treasurerName || 'Bendahara RT'}
-                    </p>
-                  </td>
-                  <td style={{ textAlign: 'center', width: '33%' }}>
-                    <p style={{ margin: '0 0 3px 0', fontSize: '10px' }}>Penerima,</p>
-                    <p style={{ margin: '0 0 6px 0', fontWeight: 'bold' }}>Penerima</p>
-                    <div style={{ height: '35px' }}></div>
-                    <p style={{ fontWeight: 'bold', textDecoration: 'underline', margin: 0 }}>
-                      {(printingTx.salaryRecipient || '').split(' (')[0]}
-                    </p>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
           </div>
         </div>
       )}

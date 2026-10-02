@@ -148,6 +148,10 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const [formDebtDate, setFormDebtDate] = useState(() => getTodayJakarta());
   const [formDebtDueDate, setFormDebtDueDate] = useState('');
   const [formDebtNotes, setFormDebtNotes] = useState('');
+  const [formDebtAdminFee, setFormDebtAdminFee] = useState<number | ''>('');
+  const [syncDebtToCashbook, setSyncDebtToCashbook] = useState(true);
+  const [syncDebtAdminToCashbook, setSyncDebtAdminToCashbook] = useState(true);
+  const [debtAdminFeeType, setDebtAdminFeeType] = useState<'KELUAR' | 'MASUK'>('KELUAR');
 
   // Repayment Modal State
   const [isRepaymentModalOpen, setIsRepaymentModalOpen] = useState(false);
@@ -957,10 +961,14 @@ export const Cashbook: React.FC<CashbookProps> = ({
       setFormDebtType(debt.type);
       setFormDebtPersonName(debt.personName);
       setFormDebtContact(debt.contact || '');
-      setFormDebtAmount(debt.amount);
+      setFormDebtAmount(debt.adminFee ? debt.amount - debt.adminFee : debt.amount);
       setFormDebtDate(debt.date);
       setFormDebtDueDate(debt.dueDate || '');
       setFormDebtNotes(debt.notes || '');
+      setFormDebtAdminFee(debt.adminFee || '');
+      setSyncDebtToCashbook(false);
+      setSyncDebtAdminToCashbook(false);
+      setDebtAdminFeeType('KELUAR');
     } else {
       setEditingDebt(null);
       setFormDebtType('PIUTANG');
@@ -970,6 +978,10 @@ export const Cashbook: React.FC<CashbookProps> = ({
       setFormDebtDate(getTodayJakarta());
       setFormDebtDueDate('');
       setFormDebtNotes('');
+      setFormDebtAdminFee('');
+      setSyncDebtToCashbook(true);
+      setSyncDebtAdminToCashbook(true);
+      setDebtAdminFeeType('KELUAR');
     }
     setIsDebtModalOpen(true);
   };
@@ -978,40 +990,77 @@ export const Cashbook: React.FC<CashbookProps> = ({
     e.preventDefault();
     if (!formDebtPersonName || typeof formDebtAmount !== 'number' || formDebtAmount <= 0) return;
 
+    const numericAdminFee = formDebtAdminFee ? Number(formDebtAdminFee) : 0;
+    const finalAmount = formDebtAmount + numericAdminFee;
+
     if (editingDebt) {
       const updated = debts.map((d) => {
         if (d.id !== editingDebt.id) return d;
-        const diff = formDebtAmount - d.amount;
+        const diff = finalAmount - d.amount;
         const newRemaining = Math.max(0, d.remainingAmount + diff);
         return {
           ...d,
           type: formDebtType,
           personName: formDebtPersonName,
           contact: formDebtContact,
-          amount: formDebtAmount,
+          amount: finalAmount,
           remainingAmount: newRemaining,
           date: formDebtDate,
           dueDate: formDebtDueDate,
           status: newRemaining === 0 ? ('LUNAS' as DebtStatus) : ('BELUM_LUNAS' as DebtStatus),
           notes: formDebtNotes,
+          adminFee: numericAdminFee > 0 ? numericAdminFee : undefined,
         };
       });
       onUpdateDebts(updated);
     } else {
+      const newDebtId = `debt-${Date.now()}`;
       const newDebt: DebtItem = {
-        id: `debt-${Date.now()}`,
+        id: newDebtId,
         type: formDebtType,
         personName: formDebtPersonName,
         contact: formDebtContact,
-        amount: formDebtAmount,
-        remainingAmount: formDebtAmount,
+        amount: finalAmount,
+        remainingAmount: finalAmount,
         date: formDebtDate,
         dueDate: formDebtDueDate,
         status: 'BELUM_LUNAS',
         notes: formDebtNotes,
         paymentsHistory: [],
+        adminFee: numericAdminFee > 0 ? numericAdminFee : undefined,
       };
       onUpdateDebts([newDebt, ...debts]);
+
+      // Sync Main Debt to Cashbook
+      if (syncDebtToCashbook) {
+        const mainTxType = formDebtType === 'PIUTANG' ? 'KELUAR' : 'MASUK';
+        const mainReceiptNo = `DBT-${Date.now().toString().slice(-6)}`;
+        onAddTransaction({
+          date: formDebtDate,
+          type: mainTxType,
+          category: 'Kasbon / Pinjaman',
+          description: `${formDebtType === 'PIUTANG' ? 'Pemberian Pinjaman (Piutang)' : 'Penerimaan Pinjaman (Utang)'} Baru - ${formDebtPersonName}${formDebtNotes ? ` (${formDebtNotes})` : ''}`,
+          amount: formDebtAmount,
+          recordedBy: profile.treasurerName || 'Bendahara RT',
+          receiptNumber: mainReceiptNo,
+        });
+      }
+
+      // Sync Admin Fee to Cashbook
+      if (numericAdminFee > 0 && syncDebtAdminToCashbook) {
+        const adminReceiptNo = `ADM-${Date.now().toString().slice(-6)}`;
+        setTimeout(() => {
+          onAddTransaction({
+            date: formDebtDate,
+            type: debtAdminFeeType,
+            category: 'Biaya Bank / Administrasi',
+            description: `Biaya Admin Transaksi - ${formDebtType === 'PIUTANG' ? 'Piutang' : 'Utang'} - ${formDebtPersonName}`,
+            amount: numericAdminFee,
+            recordedBy: profile.treasurerName || 'Bendahara RT',
+            receiptNumber: adminReceiptNo,
+          });
+        }, 100);
+      }
     }
     setIsDebtModalOpen(false);
   };
@@ -1513,7 +1562,12 @@ export const Cashbook: React.FC<CashbookProps> = ({
                           {debt.dueDate && <div className="text-[10px] text-amber-700">Jatuh Tempo: {formatDateIndo(debt.dueDate)}</div>}
                         </td>
                         <td className="py-3 px-3.5 text-right font-mono font-bold text-slate-800">
-                          {formatRupiah(debt.amount)}
+                          <div>{formatRupiah(debt.amount)}</div>
+                          {debt.adminFee && (
+                            <div className="text-[10px] text-slate-400 font-normal mt-0.5">
+                              Pokok: {formatRupiah(debt.amount - debt.adminFee)} | Admin: {formatRupiah(debt.adminFee)}
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-3.5 text-right font-mono font-extrabold text-slate-900">
                           {formatRupiah(debt.remainingAmount)}
@@ -2948,6 +3002,86 @@ export const Cashbook: React.FC<CashbookProps> = ({
                   placeholder="Contoh: Pinjaman darurat untuk perbaikan saluran air"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 resize-none"
                 />
+              </div>
+
+              {/* Biaya Admin & Sync Section */}
+              <div className="pt-3 border-t border-slate-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block font-semibold text-slate-700">Biaya Admin (Opsional)</label>
+                  <span className="text-[10px] text-slate-400">misal biaya transfer bank, dsb.</span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="number"
+                      min={0}
+                      value={formDebtAdminFee}
+                      onChange={(e) => setFormDebtAdminFee(e.target.value !== '' ? Number(e.target.value) : '')}
+                      placeholder="Contoh: 6500"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  {formDebtAdminFee !== '' && Number(formDebtAdminFee) > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setDebtAdminFeeType('KELUAR')}
+                        className={`flex-1 py-1 px-2.5 rounded-lg font-bold border text-center cursor-pointer transition-all ${
+                          debtAdminFeeType === 'KELUAR'
+                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        Beban (Keluar)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDebtAdminFeeType('MASUK')}
+                        className={`flex-1 py-1 px-2.5 rounded-lg font-bold border text-center cursor-pointer transition-all ${
+                          debtAdminFeeType === 'MASUK'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        Penerimaan (Masuk)
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {!editingDebt && (
+                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-2 mt-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500 font-medium">Auto-Sync Buku Kas</span>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label className="flex items-center gap-2 cursor-pointer text-slate-600 hover:text-slate-900">
+                        <input
+                          type="checkbox"
+                          checked={syncDebtToCashbook}
+                          onChange={(e) => setSyncDebtToCashbook(e.target.checked)}
+                          className="w-4 h-4 text-emerald-600 border-slate-300 rounded-sm focus:ring-emerald-500"
+                        />
+                        <span>Sync Catatan Utama ({formDebtType === 'PIUTANG' ? 'Keluar' : 'Masuk'})</span>
+                      </label>
+
+                      {formDebtAdminFee !== '' && Number(formDebtAdminFee) > 0 && (
+                        <label className="flex items-center gap-2 cursor-pointer text-slate-600 hover:text-slate-900">
+                          <input
+                            type="checkbox"
+                            checked={syncDebtAdminToCashbook}
+                            onChange={(e) => setSyncDebtAdminToCashbook(e.target.checked)}
+                            className="w-4 h-4 text-emerald-600 border-slate-300 rounded-sm focus:ring-emerald-500"
+                          />
+                          <span>Sync Biaya Admin ({debtAdminFeeType === 'KELUAR' ? 'Keluar' : 'Masuk'})</span>
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">

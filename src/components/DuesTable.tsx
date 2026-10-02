@@ -54,7 +54,8 @@ interface DuesTableProps {
     amount: number,
     method: string,
     receiptNo: string,
-    date: string
+    date: string,
+    adminFee?: number
   ) => void;
   incidentalPrograms?: IncidentalDuesProgram[];
   onSaveIncidentalProgram?: (program: IncidentalDuesProgram) => Promise<void>;
@@ -178,6 +179,9 @@ export const DuesTable: React.FC<DuesTableProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<'Tunai' | 'Transfer Bank' | 'QRIS RT'>('Tunai');
   const [customPayAmount, setCustomPayAmount] = useState<number | null>(null);
   const [paymentNote, setPaymentNote] = useState('');
+  const [adminFee, setAdminFee] = useState<number | ''>('');
+  const [syncAdminFeeToCashbook, setSyncAdminFeeToCashbook] = useState(true);
+  const [adminFeeType, setAdminFeeType] = useState<'KELUAR' | 'MASUK'>('KELUAR');
   const [syncToCashbook, setSyncToCashbook] = useState(true);
   const [formFile, setFormFile] = useState<File | null>(null);
   const [isUploadingDrive, setIsUploadingDrive] = useState(false);
@@ -677,6 +681,9 @@ export const DuesTable: React.FC<DuesTableProps> = ({
     }
     setCustomPayAmount(null);
     setPaymentNote('');
+    setAdminFee('');
+    setSyncAdminFeeToCashbook(true);
+    setAdminFeeType('KELUAR');
     setIsPayModalOpen(true);
   };
 
@@ -784,6 +791,8 @@ export const DuesTable: React.FC<DuesTableProps> = ({
       const newPayments = { ...r.payments };
       const perMonthNominal = calculatedPayAmount / selectedMonths.length;
 
+      const numericAdminFee = typeof adminFee === 'number' ? adminFee : Number(adminFee) || 0;
+
       selectedMonths.forEach((m) => {
         const existing = newPayments[m];
         const existingAmount = existing?.paid ? existing.amount : 0;
@@ -801,6 +810,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
           paidAt: today,
           receiptNo,
           paymentMethod,
+          adminFee: numericAdminFee > 0 ? numericAdminFee : undefined,
         };
 
         if (paymentNoteValue !== null) {
@@ -842,8 +852,31 @@ export const DuesTable: React.FC<DuesTableProps> = ({
       onAddTransaction(txPayload);
     }
 
+    // Sync Biaya Admin (Opsional) ke Buku Kas
+    const numericAdminFee = typeof adminFee === 'number' ? adminFee : Number(adminFee) || 0;
+    if (numericAdminFee > 0 && syncAdminFeeToCashbook) {
+      const adminTxPayload: Omit<CashTransaction, 'id'> = {
+        date: today,
+        type: adminFeeType,
+        category: 'Biaya Bank / Administrasi',
+        description:
+          adminFeeType === 'KELUAR'
+            ? `Biaya Admin Bank/Transaksi - Iuran No. ${selectedResident.houseNo} (${selectedResident.name}) - ${receiptNo}`
+            : `Biaya Admin Tambahan Warga - Iuran No. ${selectedResident.houseNo} (${selectedResident.name}) - ${receiptNo}`,
+        amount: numericAdminFee,
+        recordedBy: profile.treasurerName || 'Bendahara RT',
+        receiptNumber: `ADM-${receiptNo.replace(/^KW-/, '')}`,
+      };
+
+      // Jeda singkat agar timestamp ID unik di Firebase
+      setTimeout(() => {
+        onAddTransaction(adminTxPayload);
+      }, 80);
+    }
+
     setIsPayModalOpen(false);
     setFormFile(null);
+    setAdminFee('');
 
     // Open receipt modal right away
     onViewReceipt(
@@ -852,7 +885,8 @@ export const DuesTable: React.FC<DuesTableProps> = ({
       calculatedPayAmount,
       paymentMethod,
       receiptNo,
-      today
+      today,
+      numericAdminFee > 0 ? numericAdminFee : undefined
     );
   };
 
@@ -1431,7 +1465,8 @@ export const DuesTable: React.FC<DuesTableProps> = ({
                                         payment.amount,
                                         payment.paymentMethod || 'Tunai',
                                         payment.receiptNo || 'KW-AUTO',
-                                        payment.paidAt || '2026-09-01'
+                                        payment.paidAt || '2026-09-01',
+                                        payment.adminFee
                                       )
                                     }
                                     title="Lihat kuitansi resmi"
@@ -1773,6 +1808,127 @@ export const DuesTable: React.FC<DuesTableProps> = ({
                     ? 'File akan otomatis diunggah dan disimpan ke folder "Bukti Kas & Iuran RT" di Google Drive Anda.'
                     : 'Untuk menyimpan bukti permanen ke Google Drive, silakan klik "+ Hubungkan Google Drive".'}
                 </p>
+              </div>
+
+              {/* Biaya Admin (Opsional) */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                      <span>Biaya Admin (Opsional)</span>
+                      <span className="text-[10px] text-slate-500 font-normal">(Transfer / Bank / QRIS)</span>
+                    </label>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      Tambahkan biaya admin transaksi jika ada (misal BI-Fast, transfer beda bank, dsb.)
+                    </p>
+                  </div>
+                  {adminFee !== '' && Number(adminFee) > 0 && (
+                    <span className="text-xs font-mono font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">
+                      {formatRupiah(Number(adminFee))}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-2 text-xs font-semibold text-slate-400">Rp</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={adminFee}
+                      onChange={(e) => setAdminFee(e.target.value !== '' ? Number(e.target.value) : '')}
+                      placeholder="0 (Contoh: 2500)"
+                      className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 font-mono focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  {/* Preset Buttons */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {[
+                      { label: '+2.500', val: 2500, title: 'BI-Fast Rp 2.500' },
+                      { label: '+6.500', val: 6500, title: 'Antar Bank Rp 6.500' },
+                      { label: '+1.000', val: 1000, title: 'Biaya Rp 1.000' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.val}
+                        type="button"
+                        onClick={() => setAdminFee(adminFee === preset.val ? '' : preset.val)}
+                        className={`px-2 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer ${
+                          adminFee === preset.val
+                            ? 'bg-amber-100 border-amber-400 text-amber-900 shadow-2xs'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                        title={preset.title}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                    {adminFee !== '' && (
+                      <button
+                        type="button"
+                        onClick={() => setAdminFee('')}
+                        className="px-2 py-1 text-[11px] text-rose-600 hover:bg-rose-50 border border-transparent rounded-lg cursor-pointer font-medium"
+                        title="Hapus Biaya Admin"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sync Biaya Admin Options */}
+                {adminFee !== '' && Number(adminFee) > 0 && (
+                  <div className="pt-2 border-t border-slate-200 space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={syncAdminFeeToCashbook}
+                        onChange={(e) => setSyncAdminFeeToCashbook(e.target.checked)}
+                        className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-xs font-semibold text-slate-800 select-none">
+                        Sinkronkan Biaya Admin ke Buku Kas
+                      </span>
+                    </label>
+
+                    {syncAdminFeeToCashbook && (
+                      <div className="pl-6 space-y-1.5 text-[11px]">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-slate-500 font-medium">Catat di Buku Kas sebagai:</span>
+                          <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden text-[11px] shadow-3xs">
+                            <button
+                              type="button"
+                              onClick={() => setAdminFeeType('KELUAR')}
+                              className={`px-2.5 py-1 font-bold transition-colors cursor-pointer ${
+                                adminFeeType === 'KELUAR'
+                                  ? 'bg-rose-600 text-white'
+                                  : 'bg-white text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              Pengeluaran (Biaya Bank)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setAdminFeeType('MASUK')}
+                              className={`px-2.5 py-1 font-bold transition-colors cursor-pointer ${
+                                adminFeeType === 'MASUK'
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-white text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              Pemasukan (Admin Tambahan)
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-slate-500 italic">
+                          {adminFeeType === 'KELUAR'
+                            ? '• Akan otomatis dicatat di Buku Kas sebagai Pengeluaran dengan kategori "Biaya Bank / Administrasi".'
+                            : '• Akan otomatis dicatat di Buku Kas sebagai Pemasukan dengan kategori "Biaya Bank / Administrasi".'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Checkbox: Auto-sync to Cashbook */}

@@ -84,6 +84,7 @@ export default function App() {
     method: string;
     receiptNo: string;
     date: string;
+    adminFee?: number;
   }>({
     resident: null,
     months: [],
@@ -370,7 +371,8 @@ export default function App() {
     amount: number,
     method: string,
     receiptNo: string,
-    date: string
+    date: string,
+    adminFee?: number
   ) => {
     setActiveReceipt({
       resident,
@@ -379,6 +381,7 @@ export default function App() {
       method,
       receiptNo,
       date,
+      adminFee,
     });
     setIsReceiptModalOpen(true);
   };
@@ -544,6 +547,7 @@ export default function App() {
         receiptNumber={activeReceipt.receiptNo}
         paymentDate={activeReceipt.date}
         profile={profile}
+        adminFee={activeReceipt.adminFee}
       />
 
       {/* Google Sheets & Drive Sync Confirmation Modal */}

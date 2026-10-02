@@ -14,6 +14,7 @@ interface ReceiptModalProps {
   receiptNumber: string;
   paymentDate: string;
   profile: RTProfile;
+  adminFee?: number;
 }
 
 export const ReceiptModal: React.FC<ReceiptModalProps> = ({
@@ -26,6 +27,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   receiptNumber,
   paymentDate,
   profile,
+  adminFee,
 }) => {
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -98,11 +100,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
   const handleShareWhatsApp = () => {
     const monthsText = monthsPaid.join(', ');
+    const adminFeeText = adminFee && adminFee > 0 ? `Biaya Admin: ${formatRupiah(adminFee)}\n` : '';
     const message = `*BUKTI PEMBAYARAN IURAN RT*\n` +
       `No. Kuitansi: ${receiptNumber}\n` +
       `Warga: ${resident.name} (Rumah No. ${resident.houseNo})\n` +
       `Iuran Bulan: ${monthsText} 2026\n` +
-      `Nominal: ${formatRupiah(totalAmount)} (${paymentMethod})\n` +
+      `Nominal Iuran: ${formatRupiah(totalAmount)} (${paymentMethod})\n` +
+      adminFeeText +
       `Tanggal: ${formatDateIndo(paymentDate)}\n` +
       `Status: LUNAS / DITERIMA\n\n` +
       `Terima kasih atas partisipasi aktif Bapak/Ibu demi kemajuan lingkungan ${profile.name}.\n\n` +
@@ -282,17 +286,31 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
                 <div className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-100">
                   <div className="col-span-4 text-slate-500 font-medium">Jumlah Pembayaran</div>
-                  <div className="col-span-8">
+                  <div className="col-span-8 flex items-center justify-between">
                     <span className="text-base font-bold text-emerald-700 font-mono">
                       {formatRupiah(totalAmount)}
                     </span>
+                    {adminFee && adminFee > 0 ? (
+                      <span className="text-[11px] font-mono font-medium text-slate-500">
+                        (+ Admin {formatRupiah(adminFee)})
+                      </span>
+                    ) : null}
                   </div>
                 </div>
+
+                {adminFee && adminFee > 0 ? (
+                  <div className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-100 bg-amber-50/30 px-2.5 rounded">
+                    <div className="col-span-4 text-slate-600 font-medium">Biaya Admin</div>
+                    <div className="col-span-8 font-mono font-bold text-slate-800">
+                      {formatRupiah(adminFee)}
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="grid grid-cols-12 gap-2 py-2 border-b border-slate-100 bg-amber-50/50 px-2.5 rounded">
                   <div className="col-span-4 text-slate-600 font-medium">Terbilang</div>
                   <div className="col-span-8 italic font-serif text-slate-800 text-xs leading-relaxed">
-                    "{terbilang(totalAmount)} Rupiah"
+                    "{terbilang(totalAmount + (adminFee || 0))} Rupiah"
                   </div>
                 </div>
 

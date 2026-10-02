@@ -46,6 +46,7 @@ export interface Resident {
       isCorrected?: boolean;
       correctionNote?: string;
       correctedAt?: string;
+      adminFee?: number;
     };
   };
   phone?: string;
@@ -172,6 +173,7 @@ export interface DebtItem {
   status: DebtStatus;
   notes?: string;
   paymentsHistory?: DebtPaymentRecord[];
+  adminFee?: number;
 }
 
 export interface IncidentalDuesPayment {

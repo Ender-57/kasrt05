@@ -36,6 +36,7 @@ import {
 import { formatRupiah, formatDateIndo, formatAttachmentFileName, getTodayJakarta, formatDateTimeJakarta, formatDateJakarta, getCleanRtRwTitle, getCleanProfileName } from '../utils/formatters';
 import { uploadFileToGoogleDrive } from '../services/googleDrive';
 import { getAccessToken, googleSignIn } from '../services/auth';
+import { CashReceiptModal } from './CashReceiptModal';
 
 type PeriodType = 'SEMUA' | 'TAHUNAN' | 'TRIWULAN' | 'BULANAN' | 'RENTANG_TANGGAL';
 
@@ -164,6 +165,15 @@ export const Cashbook: React.FC<CashbookProps> = ({
   // Modal State for adding/editing transaction
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTx, setEditingTx] = useState<CashTransaction | null>(null);
+
+  // Digital Receipt Modal State
+  const [selectedReceiptTx, setSelectedReceiptTx] = useState<CashTransaction | null>(null);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+
+  const handleOpenReceiptModal = (tx: CashTransaction) => {
+    setSelectedReceiptTx(tx);
+    setIsReceiptModalOpen(true);
+  };
 
   // Form Fields
   const [formDate, setFormDate] = useState(() => getTodayJakarta());
@@ -1983,7 +1993,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
                 <th className="py-3 px-3.5 text-right w-32 border-r border-emerald-500 sticky top-0 z-10 bg-emerald-600">PEMASUKAN</th>
                 <th className="py-3 px-3.5 text-right w-32 border-r border-emerald-500 sticky top-0 z-10 bg-emerald-600">PENGELUARAN</th>
                 <th className="py-3 px-4 text-right w-36 bg-emerald-700 sticky top-0 z-10">SALDO BERJALAN</th>
-                {isAdmin && <th className="py-3 px-3 text-center w-20 bg-emerald-800 sticky top-0 z-10">AKSI</th>}
+                {isAdmin && <th className="py-3 px-3 text-center w-28 bg-emerald-800 sticky top-0 z-10">AKSI</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -2076,16 +2086,23 @@ export const Cashbook: React.FC<CashbookProps> = ({
                         <td className="py-3 px-3 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
+                              onClick={() => handleOpenReceiptModal(tx)}
+                              title="Cetak Kuitansi Kas (PNG / PDF / WA)"
+                              className="p-1 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded cursor-pointer transition-colors"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+                            <button
                               onClick={() => handleOpenModal(tx)}
                               title="Edit transaksi"
-                              className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded cursor-pointer"
+                              className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded cursor-pointer transition-colors"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleDelete(tx)}
                               title="Hapus transaksi"
-                              className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded cursor-pointer"
+                              className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded cursor-pointer transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -2270,8 +2287,8 @@ export const Cashbook: React.FC<CashbookProps> = ({
                             <td className="py-3 px-3 text-center">
                               <div className="flex items-center justify-center gap-1.5">
                                 <button
-                                  onClick={() => handlePrintSalaryReceipt(tx)}
-                                  title="Cetak Kuitansi Gaji"
+                                  onClick={() => handleOpenReceiptModal(tx)}
+                                  title="Cetak Kuitansi Gaji (PNG / PDF / WA)"
                                   className="p-1 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                                 >
                                   <Printer className="w-4 h-4" />
@@ -3263,6 +3280,17 @@ export const Cashbook: React.FC<CashbookProps> = ({
           </div>
         </div>
       )}
+
+      {/* Digital Cash Receipt Modal */}
+      <CashReceiptModal
+        isOpen={isReceiptModalOpen}
+        onClose={() => {
+          setIsReceiptModalOpen(false);
+          setSelectedReceiptTx(null);
+        }}
+        transaction={selectedReceiptTx}
+        profile={profile}
+      />
     </div>
   );
 };

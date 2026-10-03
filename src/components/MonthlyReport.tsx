@@ -104,13 +104,42 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
   // Tab State
   const [activeTab, setActiveTab] = useState<ReportTab>('overview');
 
-  // Filter States
+  // Filter States (Dynamic Default to current month/year/quarter based on Jakarta timezone)
+  const initialValues = useMemo(() => {
+    try {
+      const todayStr = getTodayJakarta(); // YYYY-MM-DD
+      const parts = todayStr.split('-');
+      const year = parts[0] || '2026';
+      const monthNum = parseInt(parts[1] || '10', 10);
+      const keys: MonthKey[] = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      ];
+      const monthName = keys[monthNum - 1] || 'Oktober';
+      const quarterNum = Math.floor((monthNum - 1) / 3) + 1;
+      const quarterId = `Q${quarterNum}`;
+      const padZero = (n: number) => n.toString().padStart(2, '0');
+      const startD = `${year}-${padZero(monthNum)}-01`;
+      const lastDay = new Date(parseInt(year, 10), monthNum, 0).getDate();
+      const endD = `${year}-${padZero(monthNum)}-${padZero(lastDay)}`;
+      return { year, monthName, quarterId, startD, endD };
+    } catch (e) {
+      return {
+        year: '2026',
+        monthName: 'Oktober' as MonthKey,
+        quarterId: 'Q4',
+        startD: '2026-10-01',
+        endD: '2026-10-31',
+      };
+    }
+  }, []);
+
   const [periodType, setPeriodType] = useState<PeriodType>('BULANAN');
-  const [selectedYear, setSelectedYear] = useState<string>('2026');
-  const [selectedMonth, setSelectedMonth] = useState<MonthKey>('September');
-  const [selectedQuarter, setSelectedQuarter] = useState<string>('Q3');
-  const [customStartDate, setCustomStartDate] = useState<string>('2026-09-01');
-  const [customEndDate, setCustomEndDate] = useState<string>('2026-09-30');
+  const [selectedYear, setSelectedYear] = useState<string>(initialValues.year);
+  const [selectedMonth, setSelectedMonth] = useState<MonthKey>(initialValues.monthName);
+  const [selectedQuarter, setSelectedQuarter] = useState<string>(initialValues.quarterId);
+  const [customStartDate, setCustomStartDate] = useState<string>(initialValues.startD);
+  const [customEndDate, setCustomEndDate] = useState<string>(initialValues.endD);
 
   // Chart Specific Controls
   const [chartGranularity, setChartGranularity] = useState<ChartGranularity>('HARIAN');

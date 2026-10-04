@@ -54,7 +54,7 @@ import {
   MonthKey,
   DebtItem,
 } from '../types';
-import { formatRupiah, formatDateIndo, formatPercent, getOfficerForDate, getTodayJakarta } from '../utils/formatters';
+import { formatRupiah, formatDateIndo, formatPercent, getOfficerForDate, getTodayJakarta, getRateForResidentMonth, getBaseRateForMonth } from '../utils/formatters';
 
 interface MonthlyReportProps {
   residents: Resident[];
@@ -283,12 +283,7 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
       let resUnpaidSum = 0;
 
       relevantMonths.forEach((m) => {
-        const mIndex = MONTH_INDEX_MAP[m];
-        const monthlyRate = res.customMonthlyRate !== undefined
-          ? res.customMonthlyRate
-          : mIndex <= 5
-          ? 60000
-          : 70000;
+        const monthlyRate = getRateForResidentMonth(res, m, profile);
 
         resTargetInPeriod += monthlyRate;
         const payment = res.payments[m];

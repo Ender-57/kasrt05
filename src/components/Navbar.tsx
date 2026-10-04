@@ -53,24 +53,24 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs">
       {/* Top Banner indicating Role Mode */}
       <div
-        className={`px-3 sm:px-4 py-1 text-xs font-medium transition-colors ${
+        className={`px-3 sm:px-4 py-2 sm:py-2.5 min-h-[38px] text-xs font-medium transition-colors flex items-center ${
           isAdmin || isSecretary ? 'bg-emerald-800 text-white' : 'bg-slate-800 text-slate-200'
         }`}
       >
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 truncate">
+        <div className="w-full max-w-7xl mx-auto flex items-center justify-between gap-2.5 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-2 min-w-0">
             {isAdmin || isSecretary ? (
-              <span className="flex items-center gap-1.5 truncate">
-                <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse shrink-0"></span>
-                <span className="truncate font-medium">
+              <span className="flex items-center gap-2 min-w-0">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-300 animate-pulse shrink-0"></span>
+                <span className="font-medium text-xs sm:text-sm tracking-wide leading-normal">
                   <span className="hidden sm:inline">Selamat Datang </span>
                   Pengurus RT {profile.rtNumber} {isSecretary ? '(Sekretaris) ' : ''}/ RW {profile.rwNumber} Desa {profile.subdistrict}
                 </span>
               </span>
             ) : (
-              <span className="flex items-center gap-1.5 text-slate-300 truncate">
-                <Eye className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="truncate font-medium">
+              <span className="flex items-center gap-2 text-slate-300 min-w-0">
+                <Eye className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="font-medium text-xs sm:text-sm tracking-wide leading-normal">
                   <span className="hidden sm:inline">Selamat Datang </span>
                   Warga RT {profile.rtNumber} / RW {profile.rwNumber} Desa {profile.subdistrict}
                 </span>
@@ -82,18 +82,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             {isAdmin || isSecretary ? (
               <button
                 onClick={onExitAdmin}
-                className="inline-flex items-center gap-1 text-[11px] bg-emerald-900/90 hover:bg-emerald-950 px-2.5 py-0.5 rounded cursor-pointer transition-colors font-medium border border-emerald-600/40"
+                className="inline-flex items-center gap-1.5 text-xs bg-emerald-900 hover:bg-emerald-950 px-3 py-1 rounded-lg cursor-pointer transition-colors font-medium border border-emerald-600/40 shadow-2xs"
                 title="Kembali ke Mode Warga biasa"
               >
-                <Eye className="w-3 h-3 text-emerald-300" />
+                <Eye className="w-3.5 h-3.5 text-emerald-300" />
                 <span className="whitespace-nowrap">Lihat Sebagai Warga</span>
               </button>
             ) : (
               <button
                 onClick={onRequestAdmin}
-                className="inline-flex items-center gap-1 text-[11px] bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-0.5 rounded border border-emerald-500/50 cursor-pointer transition-colors font-medium shadow-2xs"
+                className="inline-flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-lg border border-emerald-500/50 cursor-pointer transition-colors font-medium shadow-2xs"
               >
-                <Lock className="w-3 h-3" />
+                <Lock className="w-3.5 h-3.5" />
                 <span className="whitespace-nowrap">Login Pengurus RT</span>
               </button>
             )}

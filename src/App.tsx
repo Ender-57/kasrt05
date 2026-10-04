@@ -476,6 +476,8 @@ export default function App() {
           <ResidentsDirectory
             residents={residents}
             isAdmin={isAdmin || isSecretary}
+            isSecretary={isSecretary}
+            canEditDues={isAdmin}
             profile={profile}
             onUpdateResidents={handleUpdateResidents}
             onNavigateToDues={() => setActiveTab('dues')}

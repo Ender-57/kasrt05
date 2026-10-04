@@ -1,5 +1,5 @@
 import { Resident, CashTransaction, RTProfile, MONTHS } from '../types';
-import { getCleanRtRwTitle } from '../utils/formatters';
+import { getCleanRtRwTitle, getMemberName } from '../utils/formatters';
 
 export interface SyncResult {
   spreadsheetId: string;
@@ -235,8 +235,8 @@ export const syncToGoogleSheets = async (
       r.kkNumber || '-',
       r.nik || '-',
       r.spouseName || '-',
-      r.children && r.children.length > 0 ? r.children.join(', ') : '-',
-      r.otherFamilyMembers && r.otherFamilyMembers.length > 0 ? r.otherFamilyMembers.join(', ') : '-',
+      r.children && r.children.length > 0 ? r.children.map(getMemberName).join(', ') : '-',
+      r.otherFamilyMembers && r.otherFamilyMembers.length > 0 ? r.otherFamilyMembers.map(getMemberName).join(', ') : '-',
       r.isVacant ? 0 : occupants,
       r.isVacant ? 'Kosong' : r.houseStatus || 'Milik Sendiri',
       r.phone || '-',

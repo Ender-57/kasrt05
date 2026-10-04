@@ -20,6 +20,7 @@ import {
 import { Resident, IncidentalDuesProgram, IncidentalDuesPayment, RTProfile, CashTransaction } from '../types';
 import { formatRupiah, formatDateIndo, getTodayJakarta, getCleanRtRwTitle, formatDateTimeJakarta, formatDateJakarta } from '../utils/formatters';
 import { IncidentalReceiptModal } from './IncidentalReceiptModal';
+import { CurrencyInput } from './CurrencyInput';
 
 interface IncidentalDuesViewProps {
   residents: Resident[];
@@ -671,14 +672,11 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="block text-[11px] font-bold text-slate-700 uppercase">Nominal Iuran (Rp)</label>
-                  <input
-                    type="number"
-                    required
-                    min={1000}
-                    step={1000}
-                    placeholder="50000"
+                  <CurrencyInput
                     value={programAmount}
-                    onChange={(e) => setProgramAmount(Number(e.target.value))}
+                    onChange={(val) => setProgramAmount(val)}
+                    prefix="Rp"
+                    placeholder="50.000"
                     className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-hidden bg-slate-50"
                   />
                 </div>
@@ -1048,14 +1046,11 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="block text-[11px] font-bold text-slate-700 uppercase">Nominal Iuran (Rp)</label>
-                  <input
-                    type="number"
-                    required
-                    min={1000}
-                    step={1000}
-                    placeholder="50000"
+                  <CurrencyInput
                     value={editAmount}
-                    onChange={(e) => setEditAmount(Number(e.target.value))}
+                    onChange={(val) => setEditAmount(val)}
+                    prefix="Rp"
+                    placeholder="50.000"
                     className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-hidden bg-slate-50"
                   />
                 </div>

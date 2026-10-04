@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Resident, MonthKey, MONTHS, RTProfile } from '../types';
 import { formatRupiah, formatDateIndo, getTodayJakarta } from '../utils/formatters';
+import { CurrencyInput } from './CurrencyInput';
 
 interface PaymentCorrectionModalProps {
   isOpen: boolean;
@@ -258,13 +259,11 @@ export const PaymentCorrectionModal: React.FC<PaymentCorrectionModalProps> = ({
                       <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
                         Nominal Sebenarnya (Rp) *
                       </label>
-                      <input
-                        type="number"
-                        required
-                        min={1}
+                      <CurrencyInput
                         value={editAmount}
-                        onChange={(e) => setEditAmount(Number(e.target.value))}
-                        className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono font-bold text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                        onChange={(val) => setEditAmount(val)}
+                        prefix="Rp"
+                        className="w-full pr-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-mono font-bold text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-amber-500"
                       />
                     </div>
 

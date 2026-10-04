@@ -1,3 +1,5 @@
+import { MonthKey, MONTHS, Resident, RTProfile, FamilyMemberItem } from '../types';
+
 /**
  * Mendapatkan tanggal hari ini dalam format YYYY-MM-DD menggunakan Zona Waktu Asia/Jakarta (WIB, UTC+7)
  */
@@ -19,6 +21,21 @@ export const getTodayJakarta = (): string => {
     const d = String(wibDate.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   }
+};
+
+/**
+ * Mendapatkan nama bulan berjalan dalam bahasa Indonesia menggunakan Zona Waktu Asia/Jakarta (WIB)
+ */
+export const getCurrentMonthJakarta = (): MonthKey => {
+  try {
+    const today = getTodayJakarta();
+    const parts = today.split('-');
+    const m = parseInt(parts[1], 10);
+    if (m >= 1 && m <= 12) {
+      return MONTHS[m - 1];
+    }
+  } catch {}
+  return 'Oktober';
 };
 
 /**
@@ -317,3 +334,127 @@ export const getCleanRtRwTitle = (profile: { rtNumber?: string; rwNumber?: strin
 
   return `${baseRtRw} ${cleanName}`.trim();
 };
+
+/**
+ * Menghitung tarif iuran standar/dasar untuk bulan tertentu berdasarkan pengaturan umum RTProfile
+ */
+export const getBaseRateForMonth = (
+  month: MonthKey,
+  profile?: RTProfile
+): number => {
+  if (profile?.monthlyRates && profile.monthlyRates[month] !== undefined) {
+    return profile.monthlyRates[month]!;
+  }
+  if (profile?.defaultMonthlyRate !== undefined && profile.defaultMonthlyRate > 0) {
+    return profile.defaultMonthlyRate;
+  }
+  // Default standar 2026: Jan-Mei 60rb, Jun-Des 70rb
+  return ['Januari', 'Februari', 'Maret', 'April', 'Mei'].includes(month) ? 60000 : 70000;
+};
+
+/**
+ * Menghitung besaran iuran final untuk warga tertentu pada bulan tertentu
+ * Memperhitungkan: Tarif khusus (customMonthlyRate) ATAU Tarif Umum dikurangi Diskon Nominal (discountAmount)
+ */
+export const getRateForResidentMonth = (
+  resident: Resident,
+  month: MonthKey,
+  profile?: RTProfile
+): number => {
+  if (resident.isVacant) return 0;
+
+  // Jika ada tarif khusus manual
+  if (resident.customMonthlyRate !== undefined && resident.customMonthlyRate > 0) {
+    return resident.customMonthlyRate;
+  }
+
+  // Tarif standar umum bulan tersebut
+  const baseRate = getBaseRateForMonth(month, profile);
+
+  // Potongan/diskon nominal per warga
+  const discount = resident.discountAmount || 0;
+  return Math.max(0, baseRate - discount);
+};
+
+/**
+ * Format string atau number dengan pemisah titik ribuan (gaya Indonesia):
+ * Contoh: 1000 -> "1.000", 15000 -> "15.000", 1500000 -> "1.500.000"
+ */
+export const formatThousands = (val: number | string | undefined | null): string => {
+  if (val === undefined || val === null || val === '') return '';
+  const cleanStr = String(val).replace(/[^0-9]/g, '');
+  if (!cleanStr) return '';
+  const num = parseInt(cleanStr, 10);
+  if (isNaN(num)) return '';
+  return num.toLocaleString('id-ID');
+};
+
+/**
+ * Parse string berpemisah titik menjadi angka mentah (number):
+ * Contoh: "15.000" -> 15000, "1.500.000" -> 1500000
+ */
+export const parseThousands = (val: string | number | undefined | null): number => {
+  if (val === undefined || val === null || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const cleanStr = String(val).replace(/[^0-9]/g, '');
+  return cleanStr ? parseInt(cleanStr, 10) : 0;
+};
+
+/**
+ * Format nomor HP/WA ke format internasional standar Indonesia (62xxx)
+ */
+export const formatWaNumber = (phone: string | undefined | null): string => {
+  if (!phone) return '';
+  let cleaned = phone.replace(/[^0-9]/g, '');
+  if (cleaned.startsWith('0')) {
+    cleaned = '62' + cleaned.slice(1);
+  } else if (cleaned.startsWith('8')) {
+    cleaned = '62' + cleaned;
+  }
+  return cleaned;
+};
+
+/**
+ * Buat tautan link WhatsApp langsung (https://wa.me/628xxx?text=...)
+ */
+export const getWhatsAppUrl = (phone: string | undefined | null, text?: string): string => {
+  const formatted = formatWaNumber(phone);
+  if (!formatted) return '';
+  const textParam = text ? `?text=${encodeURIComponent(text)}` : '';
+  return `https://wa.me/${formatted}${textParam}`;
+};
+
+/**
+ * Ekstraksi nama anggota keluarga dari string atau FamilyMemberItem
+ */
+export const getMemberName = (m: string | FamilyMemberItem | undefined | null): string => {
+  if (!m) return '';
+  if (typeof m === 'string') return m;
+  return m.name || '';
+};
+
+/**
+ * Ekstraksi NIK anggota keluarga dari string atau FamilyMemberItem
+ */
+export const getMemberNik = (m: string | FamilyMemberItem | undefined | null): string | undefined => {
+  if (!m || typeof m === 'string') return undefined;
+  return m.nik?.trim() || undefined;
+};
+
+/**
+ * Ekstraksi No. HP / WhatsApp anggota keluarga dari string atau FamilyMemberItem
+ */
+export const getMemberPhone = (m: string | FamilyMemberItem | undefined | null): string | undefined => {
+  if (!m || typeof m === 'string') return undefined;
+  return m.phone?.trim() || undefined;
+};
+
+/**
+ * Ekstraksi Hubungan Keluarga dari string atau FamilyMemberItem
+ */
+export const getMemberRelation = (m: string | FamilyMemberItem | undefined | null): string | undefined => {
+  if (!m || typeof m === 'string') return undefined;
+  return m.relation?.trim() || undefined;
+};
+
+

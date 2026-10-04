@@ -37,6 +37,7 @@ import { formatRupiah, formatDateIndo, formatAttachmentFileName, getTodayJakarta
 import { uploadFileToGoogleDrive } from '../services/googleDrive';
 import { getAccessToken, googleSignIn } from '../services/auth';
 import { CashReceiptModal } from './CashReceiptModal';
+import { CurrencyInput } from './CurrencyInput';
 
 type PeriodType = 'SEMUA' | 'TAHUNAN' | 'TRIWULAN' | 'BULANAN' | 'RENTANG_TANGGAL';
 
@@ -2459,14 +2460,13 @@ export const Cashbook: React.FC<CashbookProps> = ({
               {/* Gaji Pokok */}
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Nominal Gaji Pokok (Rp) *</label>
-                <input
-                  type="number"
+                <CurrencyInput
                   required
-                  min={1}
                   value={salaryBase}
-                  onChange={(e) => setSalaryBase(e.target.value !== '' ? Number(e.target.value) : '')}
-                  placeholder="Contoh: 1500000"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono text-base font-bold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  onChange={(val) => setSalaryBase(val > 0 ? val : '')}
+                  prefix="Rp"
+                  placeholder="Contoh: 1.500.000"
+                  className="w-full pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono text-base font-bold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
@@ -2474,13 +2474,12 @@ export const Cashbook: React.FC<CashbookProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Nominal Potongan (Rp)</label>
-                  <input
-                    type="number"
-                    min={0}
+                  <CurrencyInput
                     value={salaryDeduction}
-                    onChange={(e) => setSalaryDeduction(e.target.value !== '' ? Number(e.target.value) : '')}
-                    placeholder="Contoh: 150000 (Kosongkan jika tidak ada)"
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    onChange={(val) => setSalaryDeduction(val > 0 ? val : '')}
+                    prefix="Rp"
+                    placeholder="Contoh: 150.000 (Kosongkan jika tidak ada)"
+                    className="w-full pr-3 py-1.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
@@ -2708,14 +2707,13 @@ export const Cashbook: React.FC<CashbookProps> = ({
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Nominal (Rp) *</label>
-                  <input
-                    type="number"
+                  <CurrencyInput
                     required
-                    min={1}
                     value={formAmount}
-                    onChange={(e) => setFormAmount(e.target.value !== '' ? Number(e.target.value) : '')}
-                    placeholder="Contoh: 650000"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono text-base font-bold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    onChange={(val) => setFormAmount(val > 0 ? val : '')}
+                    prefix="Rp"
+                    placeholder="Contoh: 650.000"
+                    className="w-full pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono text-base font-bold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
               </div>
@@ -2964,14 +2962,13 @@ export const Cashbook: React.FC<CashbookProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Nominal (Rp) *</label>
-                  <input
-                    type="number"
+                  <CurrencyInput
                     required
-                    min={1}
                     value={formDebtAmount}
-                    onChange={(e) => setFormDebtAmount(e.target.value !== '' ? Number(e.target.value) : '')}
-                    placeholder="Contoh: 150000"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono font-bold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    onChange={(val) => setFormDebtAmount(val > 0 ? val : '')}
+                    prefix="Rp"
+                    placeholder="Contoh: 150.000"
+                    className="w-full pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono font-bold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
@@ -3030,13 +3027,12 @@ export const Cashbook: React.FC<CashbookProps> = ({
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <input
-                      type="number"
-                      min={0}
+                    <CurrencyInput
                       value={formDebtAdminFee}
-                      onChange={(e) => setFormDebtAdminFee(e.target.value !== '' ? Number(e.target.value) : '')}
-                      placeholder="Contoh: 6500"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                      onChange={(val) => setFormDebtAdminFee(val > 0 ? val : '')}
+                      prefix="Rp"
+                      placeholder="Contoh: 6.500"
+                      className="w-full pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
 
@@ -3141,14 +3137,13 @@ export const Cashbook: React.FC<CashbookProps> = ({
             <form onSubmit={handleSubmitRepayment} className="p-6 space-y-4 text-xs">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Nominal Pembayaran / Cicilan (Rp) *</label>
-                <input
-                  type="number"
+                <CurrencyInput
                   required
-                  min={1}
-                  max={repayingDebt.remainingAmount}
                   value={repayAmount}
-                  onChange={(e) => setRepayAmount(e.target.value !== '' ? Number(e.target.value) : '')}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono font-bold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 text-base"
+                  onChange={(val) => setRepayAmount(val > 0 ? val : '')}
+                  prefix="Rp"
+                  placeholder={`Contoh: ${repayingDebt.remainingAmount.toLocaleString('id-ID')}`}
+                  className="w-full pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 font-mono font-bold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 text-base"
                 />
                 <p className="text-[10px] text-slate-400 mt-1">Maksimal sisa: {formatRupiah(repayingDebt.remainingAmount)}</p>
               </div>

@@ -7,6 +7,7 @@ import {
   User,
   Heart,
   Phone,
+  MessageCircle,
   FileText,
   Printer,
   Edit2,
@@ -21,13 +22,27 @@ import {
   Lock,
   ShieldCheck,
 } from 'lucide-react';
-import { Resident, RTProfile } from '../types';
-import { formatRupiah, getCleanRtRwTitle, getCleanProfileName, formatDateTimeJakarta, formatDateJakarta, formatDateIndo } from '../utils/formatters';
+import { Resident, RTProfile, FamilyMemberItem } from '../types';
+import {
+  formatRupiah,
+  getCleanRtRwTitle,
+  getCleanProfileName,
+  formatDateTimeJakarta,
+  formatDateJakarta,
+  formatDateIndo,
+  getWhatsAppUrl,
+  getMemberName,
+  getMemberNik,
+  getMemberPhone,
+  getMemberRelation,
+} from '../utils/formatters';
 import { ResidentFormModal } from './ResidentFormModal';
 
 interface ResidentsDirectoryProps {
   residents: Resident[];
   isAdmin: boolean;
+  isSecretary?: boolean;
+  canEditDues?: boolean;
   profile: RTProfile;
   onUpdateResidents: (newResidents: Resident[]) => void;
   onNavigateToDues?: (residentId: string) => void;
@@ -36,10 +51,14 @@ interface ResidentsDirectoryProps {
 export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
   residents,
   isAdmin,
+  isSecretary = false,
+  canEditDues,
   profile,
   onUpdateResidents,
   onNavigateToDues,
 }) => {
+  // If canEditDues is explicitly passed, use it; otherwise true for full admin and false for secretary
+  const effectiveCanEditDues = canEditDues !== undefined ? canEditDues : (isAdmin && !isSecretary);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'OWNER' | 'RENT' | 'VACANT'>('ALL');
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
@@ -93,10 +112,24 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
         (isAdmin && r.nik && r.nik.toLowerCase().includes(q)) ||
         (isAdmin && r.kkNumber && r.kkNumber.toLowerCase().includes(q)) ||
         (r.phone && r.phone.toLowerCase().includes(q)) ||
-        (r.spouseName && r.spouseName.toLowerCase().includes(q));
+        (r.spouseName && r.spouseName.toLowerCase().includes(q)) ||
+        (isAdmin && r.spouseNik && r.spouseNik.toLowerCase().includes(q)) ||
+        (r.spousePhone && r.spousePhone.toLowerCase().includes(q));
 
-      const matchChildren = r.children?.some((c) => c.toLowerCase().includes(q));
-      const matchOther = r.otherFamilyMembers?.some((m) => m.toLowerCase().includes(q));
+      const matchChildren = r.children?.some((c) => {
+        const nameMatch = getMemberName(c).toLowerCase().includes(q);
+        const nikMatch = isAdmin && getMemberNik(c)?.toLowerCase().includes(q);
+        const phoneMatch = getMemberPhone(c)?.toLowerCase().includes(q);
+        return nameMatch || nikMatch || phoneMatch;
+      });
+
+      const matchOther = r.otherFamilyMembers?.some((m) => {
+        const nameMatch = getMemberName(m).toLowerCase().includes(q);
+        const nikMatch = isAdmin && getMemberNik(m)?.toLowerCase().includes(q);
+        const phoneMatch = getMemberPhone(m)?.toLowerCase().includes(q);
+        const relMatch = getMemberRelation(m)?.toLowerCase().includes(q);
+        return nameMatch || nikMatch || phoneMatch || relMatch;
+      });
 
       const matchesSearch = matchBasic || matchChildren || matchOther;
       if (!matchesSearch) return false;
@@ -179,11 +212,15 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
         arrearsAmount: data.arrearsAmount || 0,
         arrearsStatusText: data.arrearsAmount === 0 ? 'LUNAS' : formatRupiah(data.arrearsAmount || 0),
         customMonthlyRate: data.customMonthlyRate,
+        customRateReason: data.customRateReason,
+        discountAmount: data.discountAmount,
+        discountReason: data.discountReason,
         phone: data.phone,
         nik: data.nik,
         kkNumber: data.kkNumber,
         spouseName: data.spouseName,
         spouseNik: data.spouseNik,
+        spousePhone: data.spousePhone,
         children: data.children || [],
         otherFamilyMembers: data.otherFamilyMembers || [],
         houseStatus: data.houseStatus || 'Milik Sendiri',
@@ -236,10 +273,14 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
       const familyDetailList = [];
       if (r.spouseName) familyDetailList.push(`Istri/Suami: ${r.spouseName}`);
       if (r.children && r.children.length > 0) {
-        familyDetailList.push(`Anak: ${r.children.join(', ')}`);
+        familyDetailList.push(`Anak: ${r.children.map(getMemberName).join(', ')}`);
       }
       if (r.otherFamilyMembers && r.otherFamilyMembers.length > 0) {
-        familyDetailList.push(`Lainnya: ${r.otherFamilyMembers.join(', ')}`);
+        familyDetailList.push(`Lainnya: ${r.otherFamilyMembers.map((m) => {
+          const mName = getMemberName(m);
+          const mRel = getMemberRelation(m);
+          return mRel ? `${mName} (${mRel})` : mName;
+        }).join(', ')}`);
       }
       const familyDetailText = familyDetailList.length > 0 ? familyDetailList.join('<br/>') : '-';
       const statusText = r.isVacant ? '<span style="color: #94a3b8; font-style: italic;">Kosong</span>' : (r.houseStatus || 'Milik Sendiri');
@@ -680,7 +721,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                         <h4 className="font-bold text-slate-900 text-sm leading-tight">
                           {r.name}
                         </h4>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                           {r.isVacant ? (
                             <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-700 rounded-md">
                               Rumah Kosong
@@ -695,19 +736,35 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                               {totalFamilyOccupants} Jiwa
                             </span>
                           )}
+                          {r.customMonthlyRate !== undefined && r.customMonthlyRate > 0 ? (
+                            <span 
+                              className="px-2 py-0.5 text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300 rounded-md font-mono shadow-2xs"
+                              title={r.customRateReason ? `Tarif Khusus: ${r.customRateReason} (Rp ${r.customMonthlyRate.toLocaleString('id-ID')}/bln)` : `Tarif Khusus: Rp ${r.customMonthlyRate.toLocaleString('id-ID')}/bln`}
+                            >
+                              Khusus Rp{(r.customMonthlyRate / 1000).toLocaleString('id-ID')}k/bln
+                            </span>
+                          ) : r.discountAmount && r.discountAmount > 0 ? (
+                            <span 
+                              className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-300 rounded-md font-mono"
+                              title={r.discountReason ? `Diskon: ${r.discountReason}` : 'Mendapat Potongan Diskon Iuran'}
+                            >
+                              Diskon -Rp{(r.discountAmount / 1000).toLocaleString('id-ID')}k
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                     </div>
 
                     {!r.isVacant && r.phone && (
                       <a
-                        href={`https://wa.me/${r.phone.replace(/[^0-9]/g, '')}`}
+                        href={getWhatsAppUrl(r.phone, `Halo Bapak/Ibu ${r.name}, `)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors shrink-0"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold rounded-lg transition-colors shrink-0"
                         title={`Kirim pesan WhatsApp ke ${r.name}`}
                       >
-                        <Phone className="w-4 h-4" />
+                        <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Hubungi WA</span>
                       </a>
                     )}
                   </div>
@@ -730,10 +787,24 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
 
                         {/* Istri / Pasangan */}
                         {r.spouseName ? (
-                          <div className="flex items-center gap-2 text-slate-700">
-                            <Heart className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                            <span className="text-slate-500 text-[11px]">Istri/Pasangan:</span>
-                            <span className="font-semibold text-slate-800">{r.spouseName}</span>
+                          <div className="flex items-center justify-between text-slate-700">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Heart className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                              <span className="text-slate-500 text-[11px]">Istri/Pasangan:</span>
+                              <span className="font-semibold text-slate-800 truncate">{r.spouseName}</span>
+                            </div>
+                            {r.spousePhone && (
+                              <a
+                                href={getWhatsAppUrl(r.spousePhone, `Halo Ibu/Bpk ${r.spouseName}, `)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[9px] font-medium transition-colors shrink-0"
+                                title={`Hubungi WA ${r.spouseName}`}
+                              >
+                                <MessageCircle className="w-2.5 h-2.5 text-emerald-600" />
+                                <span>WA</span>
+                              </a>
+                            )}
                           </div>
                         ) : (
                           <div className="text-[11px] text-slate-400 italic">
@@ -750,14 +821,35 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
 
                           {r.children && r.children.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
-                              {r.children.map((child, idx) => (
-                                <span
-                                  key={idx}
-                                  className="inline-block px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[10px] font-medium transition-colors"
-                                >
-                                  {child}
-                                </span>
-                              ))}
+                              {r.children.map((child, idx) => {
+                                const cName = getMemberName(child);
+                                const cNik = getMemberNik(child);
+                                const cPhone = getMemberPhone(child);
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[10px] font-medium"
+                                  >
+                                    <span>{cName}</span>
+                                    {cNik && (
+                                      <span className="text-[9px] text-slate-400 font-mono">
+                                        ({renderMaskedId(cNik, 'KTP')})
+                                      </span>
+                                    )}
+                                    {cPhone && (
+                                      <a
+                                        href={getWhatsAppUrl(cPhone, `Halo ${cName}, `)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-emerald-700 hover:text-emerald-800"
+                                        title={`Hubungi WA ${cName}`}
+                                      >
+                                        <MessageCircle className="w-2.5 h-2.5 inline text-emerald-600" />
+                                      </a>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           ) : (
                             <span className="text-[11px] text-slate-400 italic">
@@ -770,9 +862,29 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                         {r.otherFamilyMembers && r.otherFamilyMembers.length > 0 && (
                           <div className="pt-1 text-[11px] text-slate-600">
                             <span className="text-slate-400">Famili lain: </span>
-                            <span className="font-medium text-slate-700">
-                              {r.otherFamilyMembers.join(', ')}
-                            </span>
+                            <div className="inline-flex flex-wrap gap-1 mt-0.5">
+                              {r.otherFamilyMembers.map((m, idx) => {
+                                const mName = getMemberName(m);
+                                const mRel = getMemberRelation(m);
+                                const mPhone = getMemberPhone(m);
+                                return (
+                                  <span key={idx} className="inline-flex items-center gap-1 px-1.5 py-0.2 bg-slate-100 rounded text-[10px] text-slate-700">
+                                    <span>{mName}{mRel ? ` (${mRel})` : ''}</span>
+                                    {mPhone && (
+                                      <a
+                                        href={getWhatsAppUrl(mPhone, `Halo ${mName}, `)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-emerald-700 hover:text-emerald-800"
+                                        title={`Hubungi WA ${mName}`}
+                                      >
+                                        <MessageCircle className="w-2.5 h-2.5 inline text-emerald-600" />
+                                      </a>
+                                    )}
+                                  </span>
+                                );
+                              })}
+                            </div>
                           </div>
                         )}
                       </>
@@ -856,11 +968,40 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                       </td>
 
                       <td className="py-3 px-3.5 border-r border-slate-100">
-                        <div className="font-semibold text-slate-900">{r.name}</div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-semibold text-slate-900">{r.name}</span>
+                          {r.customMonthlyRate !== undefined && r.customMonthlyRate > 0 ? (
+                            <span 
+                              className="px-1.5 py-0.5 text-[9px] font-mono bg-purple-100 text-purple-800 border border-purple-300 rounded font-bold shadow-2xs"
+                              title={r.customRateReason ? `Tarif Khusus: ${r.customRateReason}` : 'Tarif Pembayaran Khusus'}
+                            >
+                              Khusus Rp{(r.customMonthlyRate / 1000).toLocaleString('id-ID')}k
+                            </span>
+                          ) : r.discountAmount && r.discountAmount > 0 ? (
+                            <span 
+                              className="px-1.5 py-0.2 text-[9px] font-mono bg-amber-50 text-amber-800 border border-amber-300 rounded font-bold"
+                              title={r.discountReason ? `Diskon: ${r.discountReason}` : 'Mendapat Potongan Diskon Iuran'}
+                            >
+                              Diskon -Rp{(r.discountAmount / 1000).toLocaleString('id-ID')}k
+                            </span>
+                          ) : null}
+                        </div>
                         {r.phone && (
-                          <span className="text-[10px] text-slate-400 font-mono block">
-                            {r.phone}
-                          </span>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {r.phone}
+                            </span>
+                            <a
+                              href={getWhatsAppUrl(r.phone, `Halo Bapak/Ibu ${r.name}, `)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[9px] font-medium rounded transition-colors"
+                              title={`Hubungi WA ${r.name}`}
+                            >
+                              <MessageCircle className="w-2.5 h-2.5 text-emerald-600" />
+                              <span>Hubungi WA</span>
+                            </a>
+                          </div>
                         )}
                       </td>
 
@@ -874,9 +1015,23 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
 
                       <td className="py-3 px-3.5 border-r border-slate-100 text-slate-800">
                         {r.spouseName ? (
-                          <div className="flex items-center gap-1.5">
-                            <Heart className="w-3 h-3 text-rose-500 shrink-0" />
-                            <span>{r.spouseName}</span>
+                          <div className="flex items-center justify-between gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <Heart className="w-3 h-3 text-rose-500 shrink-0" />
+                              <span>{r.spouseName}</span>
+                            </div>
+                            {r.spousePhone && (
+                              <a
+                                href={getWhatsAppUrl(r.spousePhone, `Halo Ibu/Bpk ${r.spouseName}, `)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-0.5 px-1 py-0.2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[9px] font-medium transition-colors shrink-0"
+                                title={`Hubungi WA ${r.spouseName}`}
+                              >
+                                <MessageCircle className="w-2 h-2 text-emerald-600" />
+                                <span>WA</span>
+                              </a>
+                            )}
                           </div>
                         ) : (
                           <span className="text-slate-300">-</span>
@@ -886,12 +1041,28 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                       <td className="py-3 px-3.5 border-r border-slate-100">
                         {r.children && r.children.length > 0 ? (
                           <div className="space-y-0.5">
-                            <div className="text-slate-800 font-medium">
-                              {r.children.join(', ')}
+                            <div className="text-slate-800 font-medium flex flex-wrap gap-1">
+                              {r.children.map((c, idx) => (
+                                <span key={idx} className="inline-flex items-center gap-1">
+                                  <span>{getMemberName(c)}</span>
+                                  {getMemberPhone(c) && (
+                                    <a
+                                      href={getWhatsAppUrl(getMemberPhone(c), `Halo ${getMemberName(c)}, `)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-emerald-700 hover:text-emerald-800"
+                                      title={`Hubungi WA ${getMemberName(c)}`}
+                                    >
+                                      <MessageCircle className="w-2.5 h-2.5 inline text-emerald-600" />
+                                    </a>
+                                  )}
+                                  {idx < (r.children?.length || 0) - 1 ? ',' : ''}
+                                </span>
+                              ))}
                             </div>
                             {r.otherFamilyMembers && r.otherFamilyMembers.length > 0 && (
                               <div className="text-[10px] text-slate-400">
-                                Famili: {r.otherFamilyMembers.join(', ')}
+                                Famili: {r.otherFamilyMembers.map(getMemberName).join(', ')}
                               </div>
                             )}
                           </div>
@@ -985,7 +1156,21 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-slate-200">
                     <span className="text-slate-500">Istri / Pasangan:</span>
-                    <span className="font-bold text-slate-900">{selectedFamily.spouseName || '-'}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900">{selectedFamily.spouseName || '-'}</span>
+                      {selectedFamily.spousePhone && (
+                        <a
+                          href={getWhatsAppUrl(selectedFamily.spousePhone, `Halo Ibu/Bpk ${selectedFamily.spouseName}, `)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[10px] font-semibold transition-colors shadow-xs"
+                          title={`Kirim pesan WhatsApp ke ${selectedFamily.spouseName}`}
+                        >
+                          <MessageCircle className="w-2.5 h-2.5" />
+                          <span>Hubungi WA</span>
+                        </a>
+                      )}
+                    </div>
                   </div>
                   {selectedFamily.spouseNik && (
                     <div className="flex justify-between items-center py-1 border-b border-slate-200 text-[11px]">
@@ -993,14 +1178,55 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                       {renderMaskedId(selectedFamily.spouseNik, 'KTP')}
                     </div>
                   )}
+                  {selectedFamily.spousePhone && (
+                    <div className="flex justify-between items-center py-1 border-b border-slate-200 text-[11px]">
+                      <span className="text-slate-500 font-sans text-xs">No. WA Istri / Pasangan:</span>
+                      <span className="font-mono text-slate-800">{selectedFamily.spousePhone}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between py-1 border-b border-slate-200">
                     <span className="text-slate-500">Status Rumah:</span>
                     <span className="font-medium text-slate-800">{selectedFamily.houseStatus || 'Milik Sendiri'}</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-200">
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200">
                     <span className="text-slate-500">Nomor WhatsApp:</span>
-                    <span className="font-mono text-slate-800">{selectedFamily.phone || '-'}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-slate-800">{selectedFamily.phone || '-'}</span>
+                      {selectedFamily.phone && (
+                        <a
+                          href={getWhatsAppUrl(selectedFamily.phone, `Halo Bapak/Ibu ${selectedFamily.name}, `)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[11px] font-semibold transition-colors shadow-xs"
+                          title={`Kirim pesan WhatsApp ke ${selectedFamily.name}`}
+                        >
+                          <MessageCircle className="w-3 h-3" />
+                          <span>Hubungi WA</span>
+                        </a>
+                      )}
+                    </div>
                   </div>
+                  {selectedFamily.customMonthlyRate !== undefined && selectedFamily.customMonthlyRate > 0 ? (
+                    <div className="flex justify-between items-center py-2 border-b border-purple-200 bg-purple-50 px-2.5 rounded-lg">
+                      <div>
+                        <span className="text-purple-900 font-bold block text-xs">Nominal Pembayaran Khusus:</span>
+                        {selectedFamily.customRateReason && (
+                          <span className="text-[10px] text-purple-700 italic">{selectedFamily.customRateReason}</span>
+                        )}
+                      </div>
+                      <span className="font-mono font-extrabold text-purple-900 text-sm">{formatRupiah(selectedFamily.customMonthlyRate)} / bln</span>
+                    </div>
+                  ) : selectedFamily.discountAmount && selectedFamily.discountAmount > 0 ? (
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-200 bg-amber-50/60 px-2 rounded-lg">
+                      <div>
+                        <span className="text-amber-800 font-bold block">Keringanan Diskon Iuran:</span>
+                        {selectedFamily.discountReason && (
+                          <span className="text-[10px] text-amber-700 italic">{selectedFamily.discountReason}</span>
+                        )}
+                      </div>
+                      <span className="font-mono font-bold text-amber-900">-Rp{(selectedFamily.discountAmount / 1000).toLocaleString('id-ID')}k / bln</span>
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Anak-anak */}
@@ -1009,13 +1235,37 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                     Daftar Nama Anak:
                   </span>
                   {selectedFamily.children && selectedFamily.children.length > 0 ? (
-                    <ul className="list-disc list-inside space-y-1 bg-white p-2.5 rounded-lg border border-slate-200">
-                      {selectedFamily.children.map((child, idx) => (
-                        <li key={idx} className="font-medium text-slate-800">
-                          {child}
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
+                      {selectedFamily.children.map((child, idx) => {
+                        const cName = getMemberName(child);
+                        const cNik = getMemberNik(child);
+                        const cPhone = getMemberPhone(child);
+                        return (
+                          <div key={idx} className="flex items-center justify-between text-slate-800">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-medium">• {cName}</span>
+                              {cNik && (
+                                <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-1.5 py-0.2 rounded">
+                                  KTP: {renderMaskedId(cNik, 'KTP')}
+                                </span>
+                              )}
+                            </div>
+                            {cPhone && (
+                              <a
+                                href={getWhatsAppUrl(cPhone, `Halo ${cName}, `)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-medium rounded transition-colors"
+                                title={`Hubungi WA ${cName}`}
+                              >
+                                <MessageCircle className="w-2.5 h-2.5 text-emerald-600" />
+                                <span>Hubungi WA</span>
+                              </a>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
                     <span className="text-slate-400 italic">Tidak ada anak terdaftar</span>
                   )}
@@ -1027,13 +1277,43 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                     <span className="font-semibold text-slate-700 block mb-1">
                       Anggota Keluarga Lainnya:
                     </span>
-                    <ul className="list-disc list-inside space-y-1 bg-white p-2.5 rounded-lg border border-slate-200">
-                      {selectedFamily.otherFamilyMembers.map((m, idx) => (
-                        <li key={idx} className="text-slate-800">
-                          {m}
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
+                      {selectedFamily.otherFamilyMembers.map((m, idx) => {
+                        const mName = getMemberName(m);
+                        const mRel = getMemberRelation(m);
+                        const mNik = getMemberNik(m);
+                        const mPhone = getMemberPhone(m);
+                        return (
+                          <div key={idx} className="flex items-center justify-between text-slate-800">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-medium">• {mName}</span>
+                              {mRel && (
+                                <span className="text-[10px] text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.2 rounded font-medium">
+                                  {mRel}
+                                </span>
+                              )}
+                              {mNik && (
+                                <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-1.5 py-0.2 rounded">
+                                  KTP: {renderMaskedId(mNik, 'KTP')}
+                                </span>
+                              )}
+                            </div>
+                            {mPhone && (
+                              <a
+                                href={getWhatsAppUrl(mPhone, `Halo ${mName}, `)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-medium rounded transition-colors"
+                                title={`Hubungi WA ${mName}`}
+                              >
+                                <MessageCircle className="w-2.5 h-2.5 text-emerald-600" />
+                                <span>Hubungi WA</span>
+                              </a>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1069,6 +1349,8 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
         onClose={() => setIsFormModalOpen(false)}
         onSave={handleSaveResident}
         resident={editingResident}
+        profile={profile}
+        canEditDues={effectiveCanEditDues}
       />
 
       {/* Custom Delete Confirmation Modal (In-App Dialog) */}

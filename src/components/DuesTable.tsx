@@ -24,11 +24,12 @@ import {
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { Resident, MonthKey, MONTHS, RTProfile, CashTransaction, IncidentalDuesProgram } from '../types';
-import { formatRupiah, formatAttachmentFileName, getTodayJakarta, formatDateTimeJakarta, formatDateJakarta, getCleanRtRwTitle } from '../utils/formatters';
+import { formatRupiah, formatAttachmentFileName, getTodayJakarta, formatDateTimeJakarta, formatDateJakarta, getCleanRtRwTitle, getCurrentMonthJakarta, getRateForResidentMonth, getBaseRateForMonth } from '../utils/formatters';
 import { runSelfHealing } from '../utils/selfHealing';
 import { PaymentCorrectionModal } from './PaymentCorrectionModal';
 import { ResidentFormModal } from './ResidentFormModal';
 import { IncidentalDuesView } from './IncidentalDuesView';
+import { CurrencyInput } from './CurrencyInput';
 import { uploadFileToGoogleDrive } from '../services/googleDrive';
 import { getAccessToken, googleSignIn } from '../services/auth';
 
@@ -225,11 +226,8 @@ export const DuesTable: React.FC<DuesTableProps> = ({
     return m.slice(0, 3).toUpperCase();
   };
 
-  // Dynamic cutoff month: defaults to current month (e.g. September/Oktober) and automatically updates when month changes
-  const [cutoffMonth, setCutoffMonth] = useState<MonthKey>(() => {
-    const currentMonthIdx = new Date().getMonth();
-    return MONTHS[currentMonthIdx] || 'September';
-  });
+  // Dynamic cutoff month: defaults to current month (e.g. Oktober) and automatically updates when month changes
+  const [cutoffMonth, setCutoffMonth] = useState<MonthKey>(() => getCurrentMonthJakarta());
 
   // Dynamic calculation of resident arrears based on unpaid months through selected cutoffMonth
   const calculateArrearsForResident = (
@@ -243,12 +241,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
 
     let arrears = 0;
     monthsToCheck.forEach((m) => {
-      const expectedRate =
-        r.customMonthlyRate && r.customMonthlyRate > 0
-          ? r.customMonthlyRate
-          : ['Januari', 'Februari', 'Maret', 'April', 'Mei'].includes(m)
-          ? 60000
-          : 70000;
+      const expectedRate = getRateForResidentMonth(r, m, profile);
 
       const p = paymentsMap[m];
       if (!p || !p.paid) {
@@ -269,12 +262,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
     const result: Array<{ month: MonthKey; expected: number; paid: number; arrears: number }> = [];
 
     monthsToCheck.forEach((m) => {
-      const expectedRate =
-        r.customMonthlyRate && r.customMonthlyRate > 0
-          ? r.customMonthlyRate
-          : ['Januari', 'Februari', 'Maret', 'April', 'Mei'].includes(m)
-          ? 60000
-          : 70000;
+      const expectedRate = getRateForResidentMonth(r, m, profile);
 
       const p = r.payments[m];
       const paidAmount = p && p.paid ? p.amount : 0;
@@ -287,7 +275,6 @@ export const DuesTable: React.FC<DuesTableProps> = ({
         });
       }
     });
-
     return result;
   };
 
@@ -366,11 +353,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
 
   // Default monthly rate helper
   const getRateForMonth = (resident: Resident, month: MonthKey): number => {
-    if (resident.customMonthlyRate && resident.customMonthlyRate > 0) {
-      return resident.customMonthlyRate;
-    }
-    const janToMay: MonthKey[] = ['Januari', 'Februari', 'Maret', 'April', 'Mei'];
-    return janToMay.includes(month) ? 60000 : 70000;
+    return getRateForResidentMonth(resident, month, profile);
   };
 
   // Filtered residents list
@@ -916,6 +899,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
         arrearsAmount: data.arrearsAmount || 0,
         arrearsStatusText: data.arrearsAmount === 0 ? 'LUNAS' : formatRupiah(data.arrearsAmount || 0),
         customMonthlyRate: data.customMonthlyRate,
+        customRateReason: data.customRateReason,
         phone: data.phone,
         nik: data.nik,
         kkNumber: data.kkNumber,
@@ -1185,9 +1169,11 @@ export const DuesTable: React.FC<DuesTableProps> = ({
             <Info className="w-4 h-4" />
           </div>
           <div>
-            <p className="font-semibold text-slate-200 text-sm">Tarif Iuran Rutin Bulanan Warga Th 2026</p>
+            <p className="font-semibold text-slate-200 text-sm">Tarif Iuran Rutin Bulanan Warga</p>
             <p className="text-slate-400 mt-0.5">
-              • <strong>Januari s.d. Mei:</strong> Rp 60.000 / bulan &nbsp;|&nbsp; • <strong>Juni s.d. Desember:</strong> Rp 70.000 / bulan
+              • <strong>Tarif Umum:</strong> Rp {((profile.monthlyRates?.Januari ?? 60000) / 1000).toLocaleString('id-ID')}k (Jan-Mei) &amp; Rp {((profile.monthlyRates?.Juni ?? 70000) / 1000).toLocaleString('id-ID')}k (Jun-Des)
+              {profile.defaultMonthlyRate ? ` / Default Rp ${(profile.defaultMonthlyRate / 1000).toLocaleString('id-ID')}k` : ''} 
+              &nbsp;|&nbsp; • Warga penerima keringanan/diskon iuran diatur pada menu <strong>Data Warga</strong>
             </p>
           </div>
         </div>
@@ -1342,7 +1328,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
                   >
                     <span className="block text-white">{m.slice(0, 3)}</span>
                     <span className="block text-[9px] font-normal text-emerald-200">
-                      {['Januari', 'Februari', 'Maret', 'April', 'Mei'].includes(m) ? '60k' : '70k'}
+                      {Math.round(getBaseRateForMonth(m, profile) / 1000)}k
                     </span>
                   </th>
                 ))}
@@ -1377,15 +1363,27 @@ export const DuesTable: React.FC<DuesTableProps> = ({
 
                       {/* Resident Name (Sticky Left for Mobile) */}
                       <td className="py-2.5 px-3.5 border-r border-slate-100 font-medium sticky left-16 z-10 bg-white group-hover:bg-slate-50 shadow-[1px_0_0_0_#f1f5f9]">
-                        <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex items-center justify-between gap-1.5 flex-wrap">
                           <span className={r.isVacant ? 'italic text-slate-400' : 'text-slate-800'}>
                             {r.name}
                           </span>
-                          {r.customMonthlyRate && (
-                            <span className="px-1.5 py-0.2 text-[9px] font-mono bg-purple-50 text-purple-700 border border-purple-200 rounded">
-                              Khusus Rp{r.customMonthlyRate / 1000}k
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {r.customMonthlyRate !== undefined && r.customMonthlyRate > 0 ? (
+                              <span 
+                                className="px-1.5 py-0.5 text-[9px] font-mono bg-purple-100 text-purple-800 border border-purple-300 rounded font-bold shadow-2xs"
+                                title={r.customRateReason ? `Tarif Khusus: ${r.customRateReason} (Rp ${r.customMonthlyRate.toLocaleString('id-ID')}/bln)` : `Tarif Khusus: Rp ${r.customMonthlyRate.toLocaleString('id-ID')}/bln`}
+                              >
+                                Khusus Rp{(r.customMonthlyRate / 1000).toLocaleString('id-ID')}k
+                              </span>
+                            ) : r.discountAmount && r.discountAmount > 0 ? (
+                              <span 
+                                className="px-1.5 py-0.2 text-[9px] font-mono bg-amber-50 text-amber-800 border border-amber-300 rounded font-bold"
+                                title={r.discountReason ? `Diskon: ${r.discountReason}` : 'Mendapat Potongan Diskon Iuran'}
+                              >
+                                Diskon -Rp{(r.discountAmount / 1000).toLocaleString('id-ID')}k
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </td>
 
@@ -1633,11 +1631,14 @@ export const DuesTable: React.FC<DuesTableProps> = ({
                 >
                   {residents
                     .filter((r) => !r.isVacant)
-                    .map((r) => (
-                      <option key={r.id} value={r.id}>
-                        No. {r.houseNo} — {r.name} ({r.arrearsAmount === 0 ? 'LUNAS' : `Tunggakan: ${formatRupiah(r.arrearsAmount)}`})
-                      </option>
-                    ))}
+                    .map((r) => {
+                      const dynamicArrears = calculateArrearsForResident(r, r.payments, cutoffMonth);
+                      return (
+                        <option key={r.id} value={r.id}>
+                          No. {r.houseNo} — {r.name} ({dynamicArrears === 0 ? 'LUNAS' : `Tunggakan: ${formatRupiah(dynamicArrears)}`})
+                        </option>
+                      );
+                    })}
                 </select>
               </div>
 
@@ -1740,14 +1741,11 @@ export const DuesTable: React.FC<DuesTableProps> = ({
                 </div>
                 <div className="text-right">
                   <label className="text-[10px] text-emerald-700 block">Ubah nominal khusus?</label>
-                  <input
-                    type="number"
+                  <CurrencyInput
                     value={customPayAmount !== null ? customPayAmount : ''}
-                    placeholder="Contoh: 140000"
-                    onChange={(e) =>
-                      setCustomPayAmount(e.target.value !== '' ? Number(e.target.value) : null)
-                    }
-                    className="w-28 px-2 py-1 bg-white border border-emerald-300 rounded text-xs text-slate-900 font-mono text-right"
+                    placeholder="Contoh: 140.000"
+                    onChange={(val) => setCustomPayAmount(val > 0 ? val : null)}
+                    className="w-32 px-2 py-1 bg-white border border-emerald-300 rounded-lg text-xs text-slate-900 font-mono text-right font-semibold"
                   />
                 </div>
               </div>
@@ -1830,15 +1828,13 @@ export const DuesTable: React.FC<DuesTableProps> = ({
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-2 text-xs font-semibold text-slate-400">Rp</span>
-                    <input
-                      type="number"
-                      min="0"
+                  <div className="flex-1">
+                    <CurrencyInput
                       value={adminFee}
-                      onChange={(e) => setAdminFee(e.target.value !== '' ? Number(e.target.value) : '')}
-                      placeholder="0 (Contoh: 2500)"
-                      className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 font-mono focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                      onChange={(val) => setAdminFee(val > 0 ? val : '')}
+                      prefix="Rp"
+                      placeholder="0 (Contoh: 2.500)"
+                      className="w-full pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 font-mono focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
 

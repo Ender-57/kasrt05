@@ -27,12 +27,22 @@ export const MONTHS: MonthKey[] = [
   'Desember',
 ];
 
+export interface FamilyMemberItem {
+  name: string;
+  nik?: string; // 16 digit NIK / No. KTP
+  phone?: string; // No. HP / WhatsApp
+  relation?: string; // Hubungan keluarga: Anak, Istri/Suami, Orang Tua, Mertua, Famili, ART, dll
+}
+
 export interface Resident {
   id: string;
   houseNo: string;
   name: string;
   isVacant: boolean; // Rumah kosong
-  customMonthlyRate?: number; // Default: Jan-Mei 60rb, Jun-Des 70rb, unless customized (e.g. No 373 = 30rb)
+  customMonthlyRate?: number; // Nominal pembayaran khusus per bulan (misal: Rp 45.000 untuk rumah No. 83)
+  customRateReason?: string; // Alasan / keterangan tarif khusus (misal: "Kesepakatan Warga No. 83", "Keringanan Lansia", dll)
+  discountAmount?: number; // (Opsional) Nominal potongan / diskon
+  discountReason?: string; // (Opsional) Keterangan diskon
   arrearsAmount: number; // Tunggakan per September
   arrearsStatusText?: string; // 'LUNAS' or nominal
   payments: {
@@ -57,8 +67,9 @@ export interface Resident {
   kkNumber?: string; // Nomor Kartu Keluarga (16 digit)
   spouseName?: string; // Nama Istri / Suami (Pasangan)
   spouseNik?: string; // NIK Istri / Suami
-  children?: string[]; // Daftar Nama Anak
-  otherFamilyMembers?: string[]; // Anggota Keluarga Lain (Orang tua, mertua, famili, dll)
+  spousePhone?: string; // No. HP / WhatsApp Istri / Suami
+  children?: (string | FamilyMemberItem)[]; // Daftar Nama Anak (bisa string nama atau objek dengan NIK & No. HP)
+  otherFamilyMembers?: (string | FamilyMemberItem)[]; // Anggota Keluarga Lain (Orang tua, mertua, famili, dll)
   houseStatus?: 'Milik Sendiri' | 'Kontrak / Sewa' | 'Kos' | 'Rumah Dinas' | 'Lainnya';
   totalOccupants?: number; // Jumlah total jiwa penghuni
 }
@@ -141,6 +152,8 @@ export interface RTProfile {
   bankAccountNo?: string;
   bankAccountHolder?: string;
   bankTransferNote?: string;
+  defaultMonthlyRate?: number; // Besaran iuran bulanan default
+  monthlyRates?: { [key in MonthKey]?: number }; // Besaran iuran warga tiap bulan (Januari - Desember)
 }
 
 export interface GoogleSyncState {

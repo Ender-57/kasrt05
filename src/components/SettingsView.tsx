@@ -23,11 +23,14 @@ import {
   EyeOff,
   AlertTriangle,
   FileText,
+  CreditCard,
+  Tag,
 } from 'lucide-react';
-import { RTProfile, Resident, CashTransaction, CommitteeOfficer } from '../types';
+import { RTProfile, Resident, CashTransaction, CommitteeOfficer, MONTHS, MonthKey } from '../types';
 import { INITIAL_RESIDENTS, INITIAL_TRANSACTIONS, INITIAL_RT_PROFILE } from '../data/initialData';
-import { formatDateIndo, getTodayJakarta, getCleanRtRwTitle } from '../utils/formatters';
+import { formatDateIndo, getTodayJakarta, getCleanRtRwTitle, formatRupiah } from '../utils/formatters';
 import { resolveAdminPin } from '../utils/crypto';
+import { CurrencyInput } from './CurrencyInput';
 
 interface SettingsViewProps {
   profile: RTProfile;
@@ -61,10 +64,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   );
 
   // Collapsible accordion states
-  const [isIdentitasOpen, setIsIdentitasOpen] = useState(true);
+  const [isIdentitasOpen, setIsIdentitasOpen] = useState(false);
+  const [isMonthlyRatesOpen, setIsMonthlyRatesOpen] = useState(true);
   const [isUserMgmtOpen, setIsUserMgmtOpen] = useState(false);
   const [isOfficersOpen, setIsOfficersOpen] = useState(false);
   const [isAddOfficerFormOpen, setIsAddOfficerFormOpen] = useState(false);
+
+  // Monthly Rates Form State
+  const [defaultRateInput, setDefaultRateInput] = useState<number>(() => profile.defaultMonthlyRate || 70000);
+  const [monthlyRatesForm, setMonthlyRatesForm] = useState<Record<MonthKey, number>>(() => {
+    const current = profile.monthlyRates || {};
+    const defaults: Record<MonthKey, number> = {} as any;
+    MONTHS.forEach((m) => {
+      defaults[m] =
+        current[m] !== undefined
+          ? current[m]!
+          : ['Januari', 'Februari', 'Maret', 'April', 'Mei'].includes(m)
+          ? 60000
+          : 70000;
+    });
+    return defaults;
+  });
 
   // Backup Restore Modal & Notification States (No window.alert/confirm)
   const [restoreModalData, setRestoreModalData] = useState<{
@@ -87,6 +107,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     });
     setPinInput(resolveAdminPin(profile.adminPin));
     setSecPinInput(profile.secretaryPin ? resolveAdminPin(profile.secretaryPin) : '654321');
+    setDefaultRateInput(profile.defaultMonthlyRate || 70000);
+
+    const current = profile.monthlyRates || {};
+    const defaults: Record<MonthKey, number> = {} as any;
+    MONTHS.forEach((m) => {
+      defaults[m] =
+        current[m] !== undefined
+          ? current[m]!
+          : ['Januari', 'Februari', 'Maret', 'April', 'Mei'].includes(m)
+          ? 60000
+          : 70000;
+    });
+    setMonthlyRatesForm(defaults);
   }, [profile]);
 
   // New Officer form state
@@ -584,6 +617,160 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               >
                 <Save className="w-4 h-4" />
                 <span>Simpan Pengaturan Wilayah RT</span>
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      {/* PENGATURAN BESARAN IURAN TIAP BULAN (UMUM) */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div
+          onClick={() => setIsMonthlyRatesOpen(!isMonthlyRatesOpen)}
+          className="px-6 py-4 bg-emerald-900 text-white flex items-center justify-between cursor-pointer select-none hover:bg-emerald-800 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <CreditCard className="w-5 h-5 text-emerald-300" />
+            <div>
+              <h3 className="font-bold text-sm">Pengaturan Besaran Iuran Warga Tiap Bulan (Umum)</h3>
+              <p className="text-xs text-emerald-200/80">
+                Atur nominal tarif iuran bulanan standar untuk seluruh warga (Januari s.d. Desember)
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {savedSuccess && (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-300 font-semibold bg-emerald-950 px-2.5 py-1 rounded-lg">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Tersimpan
+              </span>
+            )}
+            <span className="text-emerald-300 hover:text-white transition-colors text-xs font-bold whitespace-nowrap">
+              {isMonthlyRatesOpen ? '▲ Sembunyikan' : '▼ Tampilkan'}
+            </span>
+          </div>
+        </div>
+
+        {isMonthlyRatesOpen && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const updatedProfile: RTProfile = {
+                ...form,
+                defaultMonthlyRate: defaultRateInput,
+                monthlyRates: monthlyRatesForm,
+              };
+              setForm(updatedProfile);
+              onUpdateProfile(updatedProfile);
+              setSavedSuccess(true);
+              setTimeout(() => setSavedSuccess(false), 3000);
+            }}
+            className="p-6 space-y-5 text-xs"
+          >
+            {/* Info Explanation Card */}
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start gap-3 text-emerald-950">
+              <Info className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <strong className="text-xs font-bold text-emerald-900 block">
+                  Petunjuk Pengaturan Besaran Iuran &amp; Tarif Khusus:
+                </strong>
+                <p className="text-[11.5px] leading-relaxed text-emerald-900/90">
+                  1. <strong>Besaran Iuran Bulanan Umum</strong> diatur di halaman ini untuk tiap bulan (Januari s.d. Desember).
+                </p>
+                <p className="text-[11.5px] leading-relaxed text-emerald-900/90">
+                  2. <strong>Nominal Pembayaran Khusus / Tarif Khusus per Warga</strong> dapat diatur secara spesifik pada menu <strong>"Data Warga"</strong> (misal rumah nomor 83 hanya bayar Rp 45.000 / bulan dengan keterangan kesepakatan/keringanan).
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Set Section */}
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <label className="block font-bold text-slate-800 text-xs sm:text-sm">
+                    Tarif Iuran Standar Acuan (Rp / Bulan)
+                  </label>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Masukkan nominal acuan dan terapkan sekaligus ke seluruh 12 bulan
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="w-40 sm:w-48">
+                    <CurrencyInput
+                      value={defaultRateInput}
+                      onChange={(val) => setDefaultRateInput(val)}
+                      prefix="Rp"
+                      placeholder="Contoh: 70.000"
+                      className="w-full pr-3 py-2 bg-white border border-slate-300 rounded-xl text-slate-900 font-mono font-bold text-xs focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated: Record<MonthKey, number> = {} as any;
+                      MONTHS.forEach((m) => {
+                        updated[m] = defaultRateInput;
+                      });
+                      setMonthlyRatesForm(updated);
+                    }}
+                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl text-xs whitespace-nowrap cursor-pointer transition-colors shadow-2xs"
+                  >
+                    Terapkan ke Semua Bulan
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Grid 12 Months */}
+            <div>
+              <label className="block font-bold text-slate-800 text-xs mb-2">
+                Rincian Besaran Iuran Warga Per Bulan (Tahun 2026):
+              </label>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {MONTHS.map((m, idx) => {
+                  const currentRate = monthlyRatesForm[m] ?? (idx < 5 ? 60000 : 70000);
+                  return (
+                    <div
+                      key={m}
+                      className="p-3 bg-slate-50 hover:bg-emerald-50/40 border border-slate-200 hover:border-emerald-300 rounded-xl transition-all"
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="font-bold text-slate-800 text-xs">
+                          {idx + 1}. {m}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {formatRupiah(currentRate)}
+                        </span>
+                      </div>
+                      <CurrencyInput
+                        value={currentRate}
+                        onChange={(val) => {
+                          setMonthlyRatesForm({
+                            ...monthlyRatesForm,
+                            [m]: val,
+                          });
+                        }}
+                        prefix="Rp"
+                        className="w-full pr-2 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono font-semibold text-xs focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-3 flex items-center justify-between border-t border-slate-100 flex-wrap gap-2">
+              <span className="text-slate-500 text-[11px]">
+                Perubahan tarif akan otomatis memengaruhi kalkulasi tunggakan dan total iuran warga.
+              </span>
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>Simpan Besaran Iuran Warga</span>
               </button>
             </div>
           </form>

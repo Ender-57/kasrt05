@@ -1,5 +1,5 @@
-import { Resident, CashTransaction, MonthKey, MONTHS } from '../types';
-import { formatRupiah } from './formatters';
+import { Resident, CashTransaction, MonthKey, MONTHS, RTProfile } from '../types';
+import { formatRupiah, getRateForResidentMonth } from './formatters';
 
 /**
  * Scans the database for any mismatches where a transaction is recorded in the cashbook (Buku Kas)
@@ -8,7 +8,8 @@ import { formatRupiah } from './formatters';
  */
 export const runSelfHealing = (
   residents: Resident[],
-  transactions: CashTransaction[]
+  transactions: CashTransaction[],
+  profile?: RTProfile
 ): { healedResidents: Resident[]; healedCount: number } => {
   let healedCount = 0;
   const houseNoToResidentMap = new Map<string, Resident>();
@@ -88,10 +89,7 @@ export const runSelfHealing = (
         if (!clonedResident.isVacant) {
           const p = clonedResident.payments[m];
           if (!p || !p.paid) {
-            // Apply standard rates: Jan-Mei 60k, Jun-Des 70k, or customRate
-            const rate = clonedResident.customMonthlyRate !== undefined 
-              ? clonedResident.customMonthlyRate 
-              : (MONTHS.indexOf(m) < 5 ? 60000 : 70000);
+            const rate = getRateForResidentMonth(clonedResident, m, profile);
             arrears += rate;
           }
         }

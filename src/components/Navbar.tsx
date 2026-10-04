@@ -12,6 +12,7 @@ import {
   Lock,
   CreditCard,
   Contact,
+  Clock,
 } from 'lucide-react';
 import { RTProfile, GoogleSyncState } from '../types';
 import { getCleanRtRwTitle } from '../utils/formatters';
@@ -60,11 +61,15 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="w-full max-w-7xl mx-auto flex items-center justify-between gap-2.5 flex-wrap sm:flex-nowrap">
           <div className="flex items-center gap-2 min-w-0">
             {isAdmin || isSecretary ? (
-              <span className="flex items-center gap-2 min-w-0">
+              <span className="flex items-center gap-2 min-w-0 flex-wrap">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-300 animate-pulse shrink-0"></span>
                 <span className="font-medium text-xs sm:text-sm tracking-wide leading-normal">
                   <span className="hidden sm:inline">Selamat Datang </span>
                   Pengurus RT {profile.rtNumber} {isSecretary ? '(Sekretaris) ' : ''}/ RW {profile.rwNumber} Desa {profile.subdistrict}
+                </span>
+                <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-mono bg-emerald-950/70 text-emerald-200 border border-emerald-500/40 px-2 py-0.5 rounded-full">
+                  <Clock className="w-3 h-3 text-emerald-400 shrink-0" />
+                  Auto-logout 30 mnt inaktif
                 </span>
               </span>
             ) : (

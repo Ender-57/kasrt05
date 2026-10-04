@@ -9,7 +9,8 @@ import { OfficersView } from './components/OfficersView';
 import { ReceiptModal } from './components/ReceiptModal';
 import { GoogleSyncModal } from './components/GoogleSyncModal';
 import { AdminAuthModal } from './components/AdminAuthModal';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, X, Clock } from 'lucide-react';
+import { useOfficerSession } from './hooks/useOfficerSession';
 import {
   Resident,
   CashTransaction,
@@ -52,9 +53,15 @@ export default function App() {
   // Navigation State
   const [activeTab, setActiveTab] = useState<'dues' | 'residents' | 'cashbook' | 'report' | 'officers' | 'settings'>('dues');
 
-  // Role: Viewer (Warga) vs Admin (Pengurus RT)
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isSecretary, setIsSecretary] = useState(false);
+  // Role: Viewer (Warga) vs Admin (Pengurus RT) with persistent session & 30-min auto-logout
+  const {
+    isAdmin,
+    isSecretary,
+    loginAs,
+    logout: handleExitAdmin,
+    sessionExpiredNotice,
+    clearSessionExpiredNotice,
+  } = useOfficerSession();
   const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
   const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
 
@@ -155,14 +162,14 @@ export default function App() {
     const unsubscribe = initAuth(
       (user) => {
         setUserEmail(user.email);
-        setIsAdmin(true); // Automatically grant admin if signed in with Google
+        loginAs('admin'); // Automatically grant admin if signed in with Google
       },
       () => {
         setUserEmail(null);
       }
     );
     return () => unsubscribe();
-  }, []);
+  }, [loginAs]);
 
   // Google Sign In handler
   const handleGoogleSignIn = async () => {
@@ -170,7 +177,7 @@ export default function App() {
       const res = await googleSignIn();
       if (res) {
         setUserEmail(res.user.email);
-        setIsAdmin(true);
+        loginAs('admin');
       }
     } catch (err: unknown) {
       console.error('Google Sign In failed:', err);
@@ -431,10 +438,7 @@ export default function App() {
         isAdmin={isAdmin}
         isSecretary={isSecretary}
         onRequestAdmin={() => setIsAdminAuthModalOpen(true)}
-        onExitAdmin={() => {
-          setIsAdmin(false);
-          setIsSecretary(false);
-        }}
+        onExitAdmin={handleExitAdmin}
         profile={profile}
         userEmail={userEmail}
         onGoogleSignIn={handleGoogleSignIn}
@@ -569,17 +573,33 @@ export default function App() {
         isOpen={isAdminAuthModalOpen}
         onClose={() => setIsAdminAuthModalOpen(false)}
         onSuccess={(role) => {
-          if (role === 'admin') {
-            setIsAdmin(true);
-            setIsSecretary(false);
-          } else if (role === 'secretary') {
-            setIsAdmin(false);
-            setIsSecretary(true);
-          }
+          loginAs(role);
         }}
         profile={profile}
         onGoogleSignIn={handleGoogleSignIn}
       />
+
+      {/* Session Expired Toast Notification (30 Min Inactivity Auto-Logout) */}
+      {sessionExpiredNotice && (
+        <div className="fixed top-5 right-5 z-50 animate-in fade-in slide-in-from-top-4 duration-300 max-w-md">
+          <div className="p-4 rounded-2xl bg-amber-950 text-amber-100 border border-amber-700/80 shadow-2xl flex items-start gap-3">
+            <Clock className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-1">
+              <p className="font-bold text-amber-200 text-sm">Sesi Login Pengurus Berakhir</p>
+              <p className="text-xs text-amber-300/90 leading-relaxed">
+                Anda telah otomatis keluar (logout) karena tidak ada aktivitas selama 30 menit. Silakan login kembali untuk mengelola data RT.
+              </p>
+            </div>
+            <button
+              onClick={clearSessionExpiredNotice}
+              className="p-1 text-amber-400 hover:text-white rounded-lg cursor-pointer hover:bg-amber-900/50 transition-colors"
+              title="Tutup pemberitahuan"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Database Error Toast Notification */}
       {dbErrorMessage && (

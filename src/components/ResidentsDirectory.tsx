@@ -61,7 +61,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
   const effectiveCanEditDues = canEditDues !== undefined ? canEditDues : (isAdmin && !isSecretary);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'OWNER' | 'RENT' | 'VACANT'>('ALL');
-  const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('table');
 
   // Modal State for Edit / Add Resident
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);

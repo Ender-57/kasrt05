@@ -16,6 +16,7 @@ import {
   Printer,
   FileText,
   Share2,
+  Home,
 } from 'lucide-react';
 import { Resident, IncidentalDuesProgram, IncidentalDuesPayment, RTProfile, CashTransaction } from '../types';
 import { formatRupiah, formatDateIndo, getTodayJakarta, getCleanRtRwTitle, formatDateTimeJakarta, formatDateJakarta } from '../utils/formatters';
@@ -51,6 +52,16 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
   const [programAmount, setProgramAmount] = useState<number>(50000);
   const [programDate, setProgramDate] = useState(() => getTodayJakarta());
   const [programDesc, setProgramDesc] = useState('');
+  const [programTargetMode, setProgramTargetMode] = useState<'ALL' | 'CUSTOM'>('ALL');
+  const [programTargetIds, setProgramTargetIds] = useState<string[]>([]);
+  const [createHouseSearch, setCreateHouseSearch] = useState('');
+
+  // Active non-vacant residents sorted numerically
+  const activeResidents = useMemo(() => {
+    return [...residents]
+      .filter((r) => !r.isVacant)
+      .sort((a, b) => a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true }));
+  }, [residents]);
 
   // Search & Filter inside Manage Modal
   const [residentSearch, setResidentSearch] = useState('');
@@ -68,6 +79,9 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
   const [editAmount, setEditAmount] = useState<number>(0);
   const [editDate, setEditDate] = useState('');
   const [editDesc, setEditDesc] = useState('');
+  const [editTargetMode, setEditTargetMode] = useState<'ALL' | 'CUSTOM'>('ALL');
+  const [editTargetIds, setEditTargetIds] = useState<string[]>([]);
+  const [editHouseSearch, setEditHouseSearch] = useState('');
 
   // Receipt Modal state
   const [receiptModalState, setReceiptModalState] = useState<{
@@ -89,9 +103,10 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
       return;
     }
 
-    // Sort active residents numerically
+    // Sort target active residents numerically
+    const targetSet = prog.targetResidentIds && prog.targetResidentIds.length > 0 ? new Set(prog.targetResidentIds) : null;
     const sortedResidents = [...residents]
-      .filter((r) => !r.isVacant)
+      .filter((r) => (targetSet ? targetSet.has(r.id) : !r.isVacant))
       .sort((a, b) => a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true }));
 
     const paidCount = Object.values(prog.payments).filter((p) => p.paid).length;
@@ -349,11 +364,21 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
     setEditAmount(prog.amount);
     setEditDate(prog.date);
     setEditDesc(prog.description || '');
+    if (prog.targetResidentIds && prog.targetResidentIds.length > 0) {
+      setEditTargetMode('CUSTOM');
+      setEditTargetIds(prog.targetResidentIds);
+    } else {
+      setEditTargetMode('ALL');
+      setEditTargetIds(activeResidents.map((r) => r.id));
+    }
+    setEditHouseSearch('');
   };
 
   const handleUpdateProgram = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProgram || !editTitle.trim() || editAmount <= 0) return;
+
+    const targetResidentIds = editTargetMode === 'CUSTOM' ? editTargetIds : undefined;
 
     const updatedProgram: IncidentalDuesProgram = {
       ...editingProgram,
@@ -361,6 +386,7 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
       amount: editAmount,
       date: editDate,
       description: editDesc.trim() || undefined,
+      targetResidentIds,
     };
 
     if (onSaveIncidentalProgram) {
@@ -375,12 +401,15 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
     e.preventDefault();
     if (!programTitle.trim() || programAmount <= 0) return;
 
+    const targetResidentIds = programTargetMode === 'CUSTOM' ? programTargetIds : undefined;
+
     const newProgram: IncidentalDuesProgram = {
       id: `inc-${Date.now()}`,
       title: programTitle.trim(),
       amount: programAmount,
       date: programDate,
       description: programDesc.trim() || undefined,
+      targetResidentIds,
       payments: {},
     };
 
@@ -392,6 +421,9 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
     setProgramTitle('');
     setProgramAmount(50000);
     setProgramDesc('');
+    setProgramTargetMode('ALL');
+    setProgramTargetIds([]);
+    setCreateHouseSearch('');
     setIsCreateModalOpen(false);
   };
 
@@ -468,10 +500,15 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
   const manageResidentsList = useMemo(() => {
     if (!selectedProgram) return [];
     
-    // Sort residents by house number numerically
-    const sorted = [...residents].sort((a, b) =>
-      a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true })
-    );
+    const targetSet =
+      selectedProgram.targetResidentIds && selectedProgram.targetResidentIds.length > 0
+        ? new Set(selectedProgram.targetResidentIds)
+        : null;
+
+    // Sort target residents by house number numerically
+    const sorted = [...residents]
+      .filter((r) => (targetSet ? targetSet.has(r.id) : true))
+      .sort((a, b) => a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true }));
 
     return sorted.filter((r) => {
       // 1. Search term
@@ -526,8 +563,10 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {incidentalPrograms.map((prog) => {
-            const paidCount = Object.values(prog.payments).filter((p) => p.paid).length;
-            const totalCount = residents.filter((r) => !r.isVacant).length || 1;
+            const targetSet = prog.targetResidentIds && prog.targetResidentIds.length > 0 ? new Set(prog.targetResidentIds) : null;
+            const targetResidents = residents.filter((r) => (targetSet ? targetSet.has(r.id) : !r.isVacant));
+            const totalCount = targetResidents.length || 1;
+            const paidCount = targetResidents.filter((r) => prog.payments[r.id]?.paid).length;
             const percentPaid = Math.round((paidCount / totalCount) * 100);
             const totalAmountCollected = paidCount * prog.amount;
 
@@ -540,9 +579,22 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
                 <div className="p-5 space-y-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                        Program Khusus
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                          Program Khusus
+                        </span>
+                        {prog.targetResidentIds && prog.targetResidentIds.length > 0 ? (
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Home className="w-3 h-3 text-amber-600" />
+                            <span>{prog.targetResidentIds.length} Rumah</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Home className="w-3 h-3 text-slate-500" />
+                            <span>Semua Rumah ({activeResidents.length})</span>
+                          </span>
+                        )}
+                      </div>
                       <h3 className="font-extrabold text-sm sm:text-base text-slate-900 mt-1.5 leading-tight">
                         {prog.title}
                       </h3>
@@ -695,12 +747,132 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
               <div className="space-y-1">
                 <label className="block text-[11px] font-bold text-slate-700 uppercase">Deskripsi / Penjelasan Singkat</label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   placeholder="Berikan keterangan singkat mengapa iuran insidentil ini diadakan, target pelaksanaan, atau rincian gotong-royong..."
                   value={programDesc}
                   onChange={(e) => setProgramDesc(e.target.value)}
                   className="w-full p-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-hidden bg-slate-50 resize-none"
                 />
+              </div>
+
+              {/* Target House Selection */}
+              <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase">
+                    Sasaran Rumah Dikenakan Iuran
+                  </label>
+                  <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                    {programTargetMode === 'ALL'
+                      ? `Seluruh Rumah (${activeResidents.length} KK)`
+                      : `${programTargetIds.length} / ${activeResidents.length} Rumah Terpilih`}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setProgramTargetMode('ALL')}
+                    className={`p-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
+                      programTargetMode === 'ALL'
+                        ? 'bg-emerald-800 text-white border-emerald-900 font-bold shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="text-xs font-bold leading-tight">Semua Rumah</div>
+                    <div className={programTargetMode === 'ALL' ? 'text-emerald-200 text-[10px]' : 'text-slate-500 text-[10px]'}>
+                      Seluruh {activeResidents.length} KK di RT
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProgramTargetMode('CUSTOM');
+                      if (programTargetIds.length === 0) {
+                        setProgramTargetIds(activeResidents.map((r) => r.id));
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
+                      programTargetMode === 'CUSTOM'
+                        ? 'bg-emerald-800 text-white border-emerald-900 font-bold shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="text-xs font-bold leading-tight">Pilih Rumah Khusus</div>
+                    <div className={programTargetMode === 'CUSTOM' ? 'text-emerald-200 text-[10px]' : 'text-slate-500 text-[10px]'}>
+                      Tentukan rumah tertentu
+                    </div>
+                  </button>
+                </div>
+
+                {programTargetMode === 'CUSTOM' && (
+                  <div className="mt-2 space-y-2 pt-2 border-t border-slate-200 animate-in fade-in duration-150">
+                    <div className="flex items-center justify-between gap-2">
+                      <input
+                        type="text"
+                        placeholder="Cari No. Rumah / Nama..."
+                        value={createHouseSearch}
+                        onChange={(e) => setCreateHouseSearch(e.target.value)}
+                        className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                      />
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setProgramTargetIds(activeResidents.map((r) => r.id))}
+                          className="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-[10px] rounded-md transition-colors cursor-pointer"
+                        >
+                          Pilih Semua
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setProgramTargetIds([])}
+                          className="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-[10px] rounded-md transition-colors cursor-pointer"
+                        >
+                          Kosongkan
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="max-h-40 overflow-y-auto grid grid-cols-2 gap-1.5 p-1.5 bg-white border border-slate-200 rounded-lg">
+                      {activeResidents
+                        .filter(
+                          (r) =>
+                            r.houseNo.toLowerCase().includes(createHouseSearch.toLowerCase()) ||
+                            r.name.toLowerCase().includes(createHouseSearch.toLowerCase())
+                        )
+                        .map((r) => {
+                          const isChecked = programTargetIds.includes(r.id);
+                          return (
+                            <label
+                              key={r.id}
+                              className={`flex items-center gap-2 p-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
+                                isChecked
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-semibold'
+                                  : 'bg-slate-50 border-slate-150 text-slate-500 hover:bg-slate-100'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setProgramTargetIds([...programTargetIds, r.id]);
+                                  } else {
+                                    setProgramTargetIds(programTargetIds.filter((id) => id !== r.id));
+                                  }
+                                }}
+                                className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                              />
+                              <span className="font-mono font-bold text-slate-900 shrink-0">
+                                No. {r.houseNo}
+                              </span>
+                              <span className="truncate text-[11px]">{r.name}</span>
+                            </label>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3.5">
@@ -993,7 +1165,7 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
 
             {/* Footer info counts */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 font-medium flex items-center justify-between shrink-0">
-              <span>Warga Lunas: <strong>{Object.values(selectedProgram.payments).filter(p => p.paid).length}</strong> dari total {residents.filter((r) => !r.isVacant).length} rumah</span>
+              <span>Warga Lunas: <strong>{Object.values(selectedProgram.payments).filter(p => p.paid).length}</strong> dari total {selectedProgram.targetResidentIds && selectedProgram.targetResidentIds.length > 0 ? selectedProgram.targetResidentIds.length : activeResidents.length} rumah sasaran</span>
               <button
                 onClick={() => {
                   setIsManageModalOpen(false);
@@ -1069,12 +1241,132 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
               <div className="space-y-1">
                 <label className="block text-[11px] font-bold text-slate-700 uppercase">Deskripsi / Penjelasan Singkat</label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   placeholder="Berikan keterangan singkat..."
                   value={editDesc}
                   onChange={(e) => setEditDesc(e.target.value)}
                   className="w-full p-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-hidden bg-slate-50 resize-none"
                 />
+              </div>
+
+              {/* Target House Selection */}
+              <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase">
+                    Sasaran Rumah Dikenakan Iuran
+                  </label>
+                  <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                    {editTargetMode === 'ALL'
+                      ? `Seluruh Rumah (${activeResidents.length} KK)`
+                      : `${editTargetIds.length} / ${activeResidents.length} Rumah Terpilih`}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditTargetMode('ALL')}
+                    className={`p-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
+                      editTargetMode === 'ALL'
+                        ? 'bg-emerald-800 text-white border-emerald-900 font-bold shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="text-xs font-bold leading-tight">Semua Rumah</div>
+                    <div className={editTargetMode === 'ALL' ? 'text-emerald-200 text-[10px]' : 'text-slate-500 text-[10px]'}>
+                      Seluruh {activeResidents.length} KK di RT
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditTargetMode('CUSTOM');
+                      if (editTargetIds.length === 0) {
+                        setEditTargetIds(activeResidents.map((r) => r.id));
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
+                      editTargetMode === 'CUSTOM'
+                        ? 'bg-emerald-800 text-white border-emerald-900 font-bold shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="text-xs font-bold leading-tight">Pilih Rumah Khusus</div>
+                    <div className={editTargetMode === 'CUSTOM' ? 'text-emerald-200 text-[10px]' : 'text-slate-500 text-[10px]'}>
+                      Tentukan rumah tertentu
+                    </div>
+                  </button>
+                </div>
+
+                {editTargetMode === 'CUSTOM' && (
+                  <div className="mt-2 space-y-2 pt-2 border-t border-slate-200 animate-in fade-in duration-150">
+                    <div className="flex items-center justify-between gap-2">
+                      <input
+                        type="text"
+                        placeholder="Cari No. Rumah / Nama..."
+                        value={editHouseSearch}
+                        onChange={(e) => setEditHouseSearch(e.target.value)}
+                        className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                      />
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setEditTargetIds(activeResidents.map((r) => r.id))}
+                          className="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-[10px] rounded-md transition-colors cursor-pointer"
+                        >
+                          Pilih Semua
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditTargetIds([])}
+                          className="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-[10px] rounded-md transition-colors cursor-pointer"
+                        >
+                          Kosongkan
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="max-h-40 overflow-y-auto grid grid-cols-2 gap-1.5 p-1.5 bg-white border border-slate-200 rounded-lg">
+                      {activeResidents
+                        .filter(
+                          (r) =>
+                            r.houseNo.toLowerCase().includes(editHouseSearch.toLowerCase()) ||
+                            r.name.toLowerCase().includes(editHouseSearch.toLowerCase())
+                        )
+                        .map((r) => {
+                          const isChecked = editTargetIds.includes(r.id);
+                          return (
+                            <label
+                              key={r.id}
+                              className={`flex items-center gap-2 p-1.5 rounded-md border text-xs cursor-pointer transition-colors ${
+                                isChecked
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-semibold'
+                                  : 'bg-slate-50 border-slate-150 text-slate-500 hover:bg-slate-100'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setEditTargetIds([...editTargetIds, r.id]);
+                                  } else {
+                                    setEditTargetIds(editTargetIds.filter((id) => id !== r.id));
+                                  }
+                                }}
+                                className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                              />
+                              <span className="font-mono font-bold text-slate-900 shrink-0">
+                                No. {r.houseNo}
+                              </span>
+                              <span className="truncate text-[11px]">{r.name}</span>
+                            </label>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3.5">

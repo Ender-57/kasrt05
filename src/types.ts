@@ -203,6 +203,7 @@ export interface IncidentalDuesProgram {
   amount: number;
   date: string;
   description?: string;
+  targetResidentIds?: string[]; // ID rumah/warga yang dikenakan iuran (jika undefined/kosong = seluruh rumah berpenghuni)
   payments: {
     [residentId: string]: IncidentalDuesPayment;
   };

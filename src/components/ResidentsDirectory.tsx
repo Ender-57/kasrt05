@@ -521,10 +521,6 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
           </div>
           <div className="flex-1">
             <p className="font-bold text-amber-950 flex items-center gap-1.5">
-              <span>Perlindungan Data Pribadi Warga (Privasi)</span>
-              <span className="text-[10px] font-semibold bg-amber-200/80 text-amber-800 px-2 py-0.5 rounded-full">
-                Mode Warga
-              </span>
             </p>
             <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
               Nomor KTP (NIK) dan Nomor Kartu Keluarga (KK) sengaja <strong>ditutup / disensor</strong> demi menjaga privasi dan keamanan data kependudukan seluruh warga RT. Akses data lengkap hanya untuk Pengurus RT yang berwenang.

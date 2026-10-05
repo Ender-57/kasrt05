@@ -404,7 +404,7 @@ export const ResidentFormModal: React.FC<ResidentFormModalProps> = ({
                     </label>
                     {phone.trim() && (
                       <a
-                        href={getWhatsAppUrl(phone, `Halo Bapak/Ibu ${name.trim() || 'Warga'}, `)}
+                        href={getWhatsAppUrl(phone, `Yth. Bapak/Ibu ${name.trim() || 'Warga'}, `)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
@@ -497,7 +497,7 @@ export const ResidentFormModal: React.FC<ResidentFormModalProps> = ({
                   </div>
                   {spousePhone.trim() && (
                     <a
-                      href={getWhatsAppUrl(spousePhone, `Halo Ibu/Bpk ${spouseName.trim() || 'Pasangan Warga'}, `)}
+                      href={getWhatsAppUrl(spousePhone, `Yth. Ibu/Bpk ${spouseName.trim() || 'Pasangan Warga'}, `)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-md text-[10px] font-semibold transition-colors"
@@ -653,7 +653,7 @@ export const ResidentFormModal: React.FC<ResidentFormModalProps> = ({
                                     HP: {childPhone}
                                   </span>
                                   <a
-                                    href={getWhatsAppUrl(childPhone, `Halo ${childName}, `)}
+                                    href={getWhatsAppUrl(childPhone, `Yth. ${childName}, `)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded font-medium transition-colors"
@@ -799,7 +799,7 @@ export const ResidentFormModal: React.FC<ResidentFormModalProps> = ({
                                     HP: {mPhone}
                                   </span>
                                   <a
-                                    href={getWhatsAppUrl(mPhone, `Halo ${mName}, `)}
+                                    href={getWhatsAppUrl(mPhone, `Yth. ${mName}, `)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded font-medium transition-colors"

@@ -419,9 +419,18 @@ export const formatWaNumber = (phone: string | undefined | null): string => {
  */
 export const getWhatsAppUrl = (phone: string | undefined | null, text?: string): string => {
   const formatted = formatWaNumber(phone);
-  if (!formatted) return '';
-  const textParam = text ? `?text=${encodeURIComponent(text)}` : '';
-  return `https://wa.me/${formatted}${textParam}`;
+  const textParam = text ? `text=${encodeURIComponent(text)}` : '';
+  if (!formatted) {
+    return text ? `https://api.whatsapp.com/send?${textParam}` : '';
+  }
+  return `https://api.whatsapp.com/send?phone=${formatted}${textParam ? `&${textParam}` : ''}`;
+};
+
+/**
+ * Buat tautan WhatsApp bebas pilih kontak/grup (tanpa mengunci nomor penerima tertentu)
+ */
+export const getWhatsAppShareUrl = (text: string): string => {
+  return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
 };
 
 /**

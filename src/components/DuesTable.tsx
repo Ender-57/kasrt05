@@ -145,15 +145,8 @@ export const DuesTable: React.FC<DuesTableProps> = ({
       `• *Atas Nama:* ${profile.bankAccountHolder || profile.treasurerName || 'Bendahara RT'}\n\n` +
       `Terima kasih banyak atas kerja sama, partisipasi, dan kepedulian Anda dalam menjaga kenyamanan lingkungan kita bersama. 🙏✨`;
 
-    const cleanPhone = resident.phone ? resident.phone.replace(/\D/g, '') : '';
-    let formatPhone = cleanPhone;
-    if (formatPhone.startsWith('0')) {
-      formatPhone = '62' + formatPhone.slice(1);
-    }
-
-    const waUrl = formatPhone
-      ? `https://api.whatsapp.com/send?phone=${formatPhone}&text=${encodeURIComponent(waMessage)}`
-      : `https://api.whatsapp.com/send?text=${encodeURIComponent(waMessage)}`;
+    // Biarkan pengirim menentukan penerima di WhatsApp
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(waMessage)}`;
 
     window.open(waUrl, '_blank');
   };
@@ -2151,7 +2144,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
                       };
 
                       const waMessage =
-                        `Halo ${treasurerName},\n` +
+                        `Yth. ${treasurerName},\n` +
                         `Saya *${selectedArrearsResident.name}* (Rumah No. *${selectedArrearsResident.houseNo}*) ingin melakukan konfirmasi pembayaran iuran RT.\n\n` +
                         `• Total Tunggakan: *${formatRupiah(totalArrears)}* (s.d. ${cutoffMonth})\n` +
                         `• Rincian Bulan: ${unpaidMonths.map((u) => u.month).join(', ')}\n\n` +
@@ -2233,7 +2226,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
                       };
 
                       const waMessage =
-                        `Halo ${treasurerName},\n` +
+                        `Yth. ${treasurerName},\n` +
                         `Saya *${selectedArrearsResident.name}* (Rumah No. *${selectedArrearsResident.houseNo}*).\n` +
                         `Status iuran warga kami terpantau LUNAS. Terima kasih!`;
 

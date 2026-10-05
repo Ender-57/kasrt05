@@ -757,7 +757,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
 
                     {!r.isVacant && r.phone && (
                       <a
-                        href={getWhatsAppUrl(r.phone, `Halo Bapak/Ibu ${r.name}, `)}
+                        href={getWhatsAppUrl(r.phone, `Yth. Bapak/Ibu ${r.name}, `)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold rounded-lg transition-colors shrink-0"
@@ -795,7 +795,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                             </div>
                             {r.spousePhone && (
                               <a
-                                href={getWhatsAppUrl(r.spousePhone, `Halo Ibu/Bpk ${r.spouseName}, `)}
+                                href={getWhatsAppUrl(r.spousePhone, `Yth. Ibu/Bpk ${r.spouseName}, `)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[9px] font-medium transition-colors shrink-0"
@@ -838,7 +838,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                                     )}
                                     {cPhone && (
                                       <a
-                                        href={getWhatsAppUrl(cPhone, `Halo ${cName}, `)}
+                                        href={getWhatsAppUrl(cPhone, `Yth. ${cName}, `)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="text-emerald-700 hover:text-emerald-800"
@@ -872,7 +872,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                                     <span>{mName}{mRel ? ` (${mRel})` : ''}</span>
                                     {mPhone && (
                                       <a
-                                        href={getWhatsAppUrl(mPhone, `Halo ${mName}, `)}
+                                        href={getWhatsAppUrl(mPhone, `Yth. ${mName}, `)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="text-emerald-700 hover:text-emerald-800"
@@ -992,7 +992,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                               {r.phone}
                             </span>
                             <a
-                              href={getWhatsAppUrl(r.phone, `Halo Bapak/Ibu ${r.name}, `)}
+                              href={getWhatsAppUrl(r.phone, `Yth. Bapak/Ibu ${r.name}, `)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[9px] font-medium rounded transition-colors"
@@ -1022,7 +1022,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                             </div>
                             {r.spousePhone && (
                               <a
-                                href={getWhatsAppUrl(r.spousePhone, `Halo Ibu/Bpk ${r.spouseName}, `)}
+                                href={getWhatsAppUrl(r.spousePhone, `Yth. Ibu/Bpk ${r.spouseName}, `)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-0.5 px-1 py-0.2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[9px] font-medium transition-colors shrink-0"
@@ -1047,7 +1047,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                                   <span>{getMemberName(c)}</span>
                                   {getMemberPhone(c) && (
                                     <a
-                                      href={getWhatsAppUrl(getMemberPhone(c), `Halo ${getMemberName(c)}, `)}
+                                      href={getWhatsAppUrl(getMemberPhone(c), `Yth. ${getMemberName(c)}, `)}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-emerald-700 hover:text-emerald-800"
@@ -1160,7 +1160,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                       <span className="font-bold text-slate-900">{selectedFamily.spouseName || '-'}</span>
                       {selectedFamily.spousePhone && (
                         <a
-                          href={getWhatsAppUrl(selectedFamily.spousePhone, `Halo Ibu/Bpk ${selectedFamily.spouseName}, `)}
+                          href={getWhatsAppUrl(selectedFamily.spousePhone, `Yth. Ibu/Bpk ${selectedFamily.spouseName}, `)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[10px] font-semibold transition-colors shadow-xs"
@@ -1194,7 +1194,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                       <span className="font-mono text-slate-800">{selectedFamily.phone || '-'}</span>
                       {selectedFamily.phone && (
                         <a
-                          href={getWhatsAppUrl(selectedFamily.phone, `Halo Bapak/Ibu ${selectedFamily.name}, `)}
+                          href={getWhatsAppUrl(selectedFamily.phone, `Yth. Bapak/Ibu ${selectedFamily.name}, `)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-[11px] font-semibold transition-colors shadow-xs"
@@ -1252,7 +1252,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                             </div>
                             {cPhone && (
                               <a
-                                href={getWhatsAppUrl(cPhone, `Halo ${cName}, `)}
+                                href={getWhatsAppUrl(cPhone, `Yth. ${cName}, `)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-medium rounded transition-colors"
@@ -1300,7 +1300,7 @@ export const ResidentsDirectory: React.FC<ResidentsDirectoryProps> = ({
                             </div>
                             {mPhone && (
                               <a
-                                href={getWhatsAppUrl(mPhone, `Halo ${mName}, `)}
+                                href={getWhatsAppUrl(mPhone, `Yth. ${mName}, `)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-medium rounded transition-colors"

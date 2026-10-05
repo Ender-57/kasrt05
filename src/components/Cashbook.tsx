@@ -21,6 +21,7 @@ import {
   Check,
   Printer,
   Clock,
+  CreditCard,
 } from 'lucide-react';
 import {
   CashTransaction,
@@ -162,6 +163,8 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const [repayDate, setRepayDate] = useState(() => getTodayJakarta());
   const [repayNote, setRepayNote] = useState('');
   const [syncRepayToCashbook, setSyncRepayToCashbook] = useState(true);
+  const [repayAdminFee, setRepayAdminFee] = useState<number | ''>('');
+  const [syncRepayAdminToCashbook, setSyncRepayAdminToCashbook] = useState(true);
 
   // Modal State for adding/editing transaction
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -189,6 +192,8 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const [uploadStatus, setUploadStatus] = useState<string>('');
   const [isDriveConnected, setIsDriveConnected] = useState<boolean>(() => Boolean(getAccessToken()));
   const [formDriveError, setFormDriveError] = useState<string | null>(null);
+  const [formBankAdminFee, setFormBankAdminFee] = useState<number | ''>('');
+  const [syncBankAdminFeeToCashbook, setSyncBankAdminFeeToCashbook] = useState(true);
 
   // Salary Management States
   const [isSalaryModalOpen, setIsSalaryModalOpen] = useState(false);
@@ -202,6 +207,8 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const [salaryNotes, setSalaryNotes] = useState('');
   const [salaryDate, setSalaryDate] = useState(() => getTodayJakarta());
   const [salaryRecipientType, setSalaryRecipientType] = useState<'OFFICER' | 'MANUAL'>('OFFICER');
+  const [salaryBankAdminFee, setSalaryBankAdminFee] = useState<number | ''>('');
+  const [syncSalaryAdminToCashbook, setSyncSalaryAdminToCashbook] = useState(true);
 
   const salaryTransactions = useMemo(() => {
     return transactions.filter((tx) => tx.category === 'Gaji & Honor');
@@ -300,6 +307,22 @@ export const Cashbook: React.FC<CashbookProps> = ({
       linkedDebtIds: salaryDeductionType === 'KASBON' && deductionAmount > 0 ? linkedDebtIds : undefined,
     });
 
+    // Sync Biaya Admin Bank (Transfer Gaji)
+    const numericSalaryAdmin = typeof salaryBankAdminFee === 'number' ? salaryBankAdminFee : Number(salaryBankAdminFee) || 0;
+    if (numericSalaryAdmin > 0 && syncSalaryAdminToCashbook) {
+      setTimeout(() => {
+        onAddTransaction({
+          date: salaryDate,
+          type: 'KELUAR',
+          category: 'Biaya Bank / Administrasi',
+          description: `Biaya Admin Transfer Gaji ${salaryMonth} - ${salaryRecipient}`,
+          amount: numericSalaryAdmin,
+          recordedBy: profile.treasurerName || 'Bendahara RT',
+          receiptNumber: `ADM-${Date.now().toString().slice(-6)}`,
+        });
+      }, 100);
+    }
+
     setIsSalaryModalOpen(false);
     // Reset form
     setSalaryRecipient('');
@@ -309,6 +332,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
     setLinkedDebtId('');
     setLinkedDebtIds([]);
     setSalaryNotes('');
+    setSalaryBankAdminFee('');
   };
 
   const angkaKeTerbilang = (num: number): string => {
@@ -1141,7 +1165,24 @@ export const Cashbook: React.FC<CashbookProps> = ({
       });
     }
 
+    // Sync Biaya Admin Bank jika ada
+    const numericRepayAdmin = typeof repayAdminFee === 'number' ? repayAdminFee : Number(repayAdminFee) || 0;
+    if (numericRepayAdmin > 0 && syncRepayAdminToCashbook) {
+      setTimeout(() => {
+        onAddTransaction({
+          date: repayDate,
+          type: 'KELUAR',
+          category: 'Biaya Bank / Administrasi',
+          description: `Biaya Admin Transfer ${repayingDebt.type === 'PIUTANG' ? 'Piutang' : 'Utang'} - ${repayingDebt.personName}`,
+          amount: numericRepayAdmin,
+          recordedBy: profile.treasurerName || 'Bendahara RT',
+          receiptNumber: `ADM-${Date.now().toString().slice(-6)}`,
+        });
+      }, 100);
+    }
+
     setIsRepaymentModalOpen(false);
+    setRepayAdminFee('');
   };
 
   const handleOpenModal = (tx?: CashTransaction) => {
@@ -1162,6 +1203,8 @@ export const Cashbook: React.FC<CashbookProps> = ({
       setFormDescription('');
       setFormAmount('');
       setFormRecordedBy(profile.treasurerName || 'Bendahara RT');
+      setFormBankAdminFee('');
+      setSyncBankAdminFeeToCashbook(true);
       const prefix = formType === 'MASUK' ? 'BKM' : 'BKK';
       const randomNo = Math.floor(100 + Math.random() * 900);
       setFormReceiptNumber(`${prefix}-2609-${randomNo}`);
@@ -1278,10 +1321,27 @@ export const Cashbook: React.FC<CashbookProps> = ({
         };
         onUpdateDebts([newDebt, ...debts]);
       }
+
+      // Automatically create bank admin fee transaction if specified and synced
+      const numericBankAdmin = typeof formBankAdminFee === 'number' ? formBankAdminFee : Number(formBankAdminFee) || 0;
+      if (formType === 'KELUAR' && numericBankAdmin > 0 && syncBankAdminFeeToCashbook) {
+        setTimeout(() => {
+          onAddTransaction({
+            date: formDate,
+            type: 'KELUAR',
+            category: 'Biaya Bank / Administrasi',
+            description: `Biaya Admin Bank / Transfer - ${formDescription}`,
+            amount: numericBankAdmin,
+            recordedBy: formRecordedBy,
+            receiptNumber: `ADM-${Date.now().toString().slice(-6)}`,
+          });
+        }, 100);
+      }
     }
 
     setIsModalOpen(false);
     setFormFile(null);
+    setFormBankAdminFee('');
   };
 
   const handleDelete = (tx: CashTransaction) => {
@@ -2604,6 +2664,84 @@ export const Cashbook: React.FC<CashbookProps> = ({
                 </div>
               )}
 
+              {/* Biaya Admin Transfer Bank (Opsional) */}
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-amber-900 flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Biaya Admin Transfer Bank (Opsional)</span>
+                  </label>
+                  {salaryBankAdminFee !== '' && Number(salaryBankAdminFee) > 0 && (
+                    <span className="text-xs font-mono font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">
+                      +{formatRupiah(Number(salaryBankAdminFee))}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                  <div className="flex-1">
+                    <CurrencyInput
+                      value={salaryBankAdminFee}
+                      onChange={(val) => setSalaryBankAdminFee(val > 0 ? val : '')}
+                      prefix="Rp"
+                      placeholder="0 (Contoh: 2.500 / 6.500)"
+                      className="w-full pr-3 py-1.5 bg-white border border-amber-300 rounded-lg text-xs text-slate-800 font-mono focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    {[
+                      { label: '+2.500', val: 2500, title: 'BI-Fast Rp 2.500' },
+                      { label: '+6.500', val: 6500, title: 'Transfer Beda Bank Rp 6.500' },
+                      { label: '+1.000', val: 1000, title: 'Biaya Admin Rp 1.000' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.val}
+                        type="button"
+                        onClick={() => setSalaryBankAdminFee(salaryBankAdminFee === preset.val ? '' : preset.val)}
+                        className={`px-2 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer ${
+                          salaryBankAdminFee === preset.val
+                            ? 'bg-amber-200 border-amber-400 text-amber-950 shadow-2xs'
+                            : 'bg-white border-amber-200 text-amber-800 hover:bg-amber-100'
+                        }`}
+                        title={preset.title}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                    {salaryBankAdminFee !== '' && (
+                      <button
+                        type="button"
+                        onClick={() => setSalaryBankAdminFee('')}
+                        className="px-2 py-1 text-[11px] text-rose-600 hover:bg-rose-50 border border-transparent rounded-lg cursor-pointer font-medium"
+                        title="Hapus Biaya Admin"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {salaryBankAdminFee !== '' && Number(salaryBankAdminFee) > 0 && (
+                  <div className="pt-2 border-t border-amber-200 space-y-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={syncSalaryAdminToCashbook}
+                        onChange={(e) => setSyncSalaryAdminToCashbook(e.target.checked)}
+                        className="rounded border-amber-300 text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
+                      />
+                      <span className="font-semibold text-amber-950 text-xs">
+                        Sinkronkan Biaya Admin ke Buku Kas
+                      </span>
+                    </label>
+                    <p className="text-[10px] text-amber-800 leading-relaxed italic pl-5">
+                      • Akan otomatis dicatat di Buku Kas sebagai transaksi <strong>Pengeluaran</strong> terpisah dengan kategori <strong>"Biaya Bank / Administrasi"</strong> sebesar {formatRupiah(Number(salaryBankAdminFee))}.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* Keterangan */}
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Catatan / Keterangan Gaji</label>
@@ -2748,6 +2886,86 @@ export const Cashbook: React.FC<CashbookProps> = ({
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
+
+              {/* Biaya Admin Bank (Opsional) - Khusus Pengeluaran Kas */}
+              {formType === 'KELUAR' && !editingTx && (
+                <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-amber-900 flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-amber-700" />
+                      <span>Biaya Admin Bank / Transfer (Opsional)</span>
+                    </label>
+                    {formBankAdminFee !== '' && Number(formBankAdminFee) > 0 && (
+                      <span className="text-xs font-mono font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">
+                        +{formatRupiah(Number(formBankAdminFee))}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                    <div className="flex-1">
+                      <CurrencyInput
+                        value={formBankAdminFee}
+                        onChange={(val) => setFormBankAdminFee(val > 0 ? val : '')}
+                        prefix="Rp"
+                        placeholder="0 (Contoh: 2.500 / 6.500)"
+                        className="w-full pr-3 py-1.5 bg-white border border-amber-300 rounded-lg text-xs text-slate-800 font-mono focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      {[
+                        { label: '+2.500', val: 2500, title: 'BI-Fast Rp 2.500' },
+                        { label: '+6.500', val: 6500, title: 'Transfer Beda Bank Rp 6.500' },
+                        { label: '+1.000', val: 1000, title: 'Biaya Admin Rp 1.000' },
+                      ].map((preset) => (
+                        <button
+                          key={preset.val}
+                          type="button"
+                          onClick={() => setFormBankAdminFee(formBankAdminFee === preset.val ? '' : preset.val)}
+                          className={`px-2 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer ${
+                            formBankAdminFee === preset.val
+                              ? 'bg-amber-200 border-amber-400 text-amber-950 shadow-2xs'
+                              : 'bg-white border-amber-200 text-amber-800 hover:bg-amber-100'
+                          }`}
+                          title={preset.title}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                      {formBankAdminFee !== '' && (
+                        <button
+                          type="button"
+                          onClick={() => setFormBankAdminFee('')}
+                          className="px-2 py-1 text-[11px] text-rose-600 hover:bg-rose-50 border border-transparent rounded-lg cursor-pointer font-medium"
+                          title="Hapus Biaya Admin"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {formBankAdminFee !== '' && Number(formBankAdminFee) > 0 && (
+                    <div className="pt-2 border-t border-amber-200 space-y-1">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={syncBankAdminFeeToCashbook}
+                          onChange={(e) => setSyncBankAdminFeeToCashbook(e.target.checked)}
+                          className="rounded border-amber-300 text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
+                        />
+                        <span className="font-semibold text-amber-950 text-xs">
+                          Sinkronkan Biaya Admin ke Buku Kas
+                        </span>
+                      </label>
+                      <p className="text-[10px] text-amber-800 leading-relaxed italic pl-5">
+                        • Akan otomatis dicatat di Buku Kas sebagai transaksi <strong>Pengeluaran</strong> terpisah dengan kategori <strong>"Biaya Bank / Administrasi"</strong> sebesar {formatRupiah(Number(formBankAdminFee))}.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Upload Bukti File Foto / PDF */}
               <div>
@@ -3168,6 +3386,84 @@ export const Cashbook: React.FC<CashbookProps> = ({
                   onChange={(e) => setRepayNote(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
+              </div>
+
+              {/* Biaya Admin Bank (Opsional) */}
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-amber-900 flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Biaya Admin Bank / Transfer (Opsional)</span>
+                  </label>
+                  {repayAdminFee !== '' && Number(repayAdminFee) > 0 && (
+                    <span className="text-xs font-mono font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">
+                      +{formatRupiah(Number(repayAdminFee))}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                  <div className="flex-1">
+                    <CurrencyInput
+                      value={repayAdminFee}
+                      onChange={(val) => setRepayAdminFee(val > 0 ? val : '')}
+                      prefix="Rp"
+                      placeholder="0 (Contoh: 2.500 / 6.500)"
+                      className="w-full pr-3 py-1.5 bg-white border border-amber-300 rounded-lg text-xs text-slate-800 font-mono focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    {[
+                      { label: '+2.500', val: 2500, title: 'BI-Fast Rp 2.500' },
+                      { label: '+6.500', val: 6500, title: 'Transfer Beda Bank Rp 6.500' },
+                      { label: '+1.000', val: 1000, title: 'Biaya Admin Rp 1.000' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.val}
+                        type="button"
+                        onClick={() => setRepayAdminFee(repayAdminFee === preset.val ? '' : preset.val)}
+                        className={`px-2 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer ${
+                          repayAdminFee === preset.val
+                            ? 'bg-amber-200 border-amber-400 text-amber-950 shadow-2xs'
+                            : 'bg-white border-amber-200 text-amber-800 hover:bg-amber-100'
+                        }`}
+                        title={preset.title}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                    {repayAdminFee !== '' && (
+                      <button
+                        type="button"
+                        onClick={() => setRepayAdminFee('')}
+                        className="px-2 py-1 text-[11px] text-rose-600 hover:bg-rose-50 border border-transparent rounded-lg cursor-pointer font-medium"
+                        title="Hapus Biaya Admin"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {repayAdminFee !== '' && Number(repayAdminFee) > 0 && (
+                  <div className="pt-2 border-t border-amber-200 space-y-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={syncRepayAdminToCashbook}
+                        onChange={(e) => setSyncRepayAdminToCashbook(e.target.checked)}
+                        className="rounded border-amber-300 text-amber-600 focus:ring-amber-500 w-3.5 h-3.5"
+                      />
+                      <span className="font-semibold text-amber-950 text-xs">
+                        Sinkronkan Biaya Admin ke Buku Kas
+                      </span>
+                    </label>
+                    <p className="text-[10px] text-amber-800 leading-relaxed italic pl-5">
+                      • Akan otomatis dicatat di Buku Kas sebagai transaksi <strong>Pengeluaran</strong> terpisah dengan kategori <strong>"Biaya Bank / Administrasi"</strong> sebesar {formatRupiah(Number(repayAdminFee))}.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <label className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer">

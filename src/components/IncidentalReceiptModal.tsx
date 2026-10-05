@@ -105,9 +105,7 @@ export const IncidentalReceiptModal: React.FC<IncidentalReceiptModalProps> = ({
       `*Pengurus ${profile.name}*`;
 
     const encoded = encodeURIComponent(message);
-    const url = resident.phone 
-      ? `https://wa.me/${resident.phone.replace(/[^0-9]/g, '')}?text=${encoded}`
-      : `https://api.whatsapp.com/send?text=${encoded}`;
+    const url = `https://api.whatsapp.com/send?text=${encoded}`;
     
     window.open(url, '_blank');
   };

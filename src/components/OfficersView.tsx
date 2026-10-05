@@ -507,7 +507,7 @@ export const OfficersView: React.FC<OfficersViewProps> = ({
                 onClick={() =>
                   handleWhatsApp(
                     ketua.phone || '081288990011',
-                    `Halo ${ketua.name} (Ketua RT 05), saya warga RT 05 ingin bertanya/berkonsultasi mengenai:`
+                    `Yth. ${ketua.name} (Ketua RT 05), saya warga RT 05 ingin bertanya/berkonsultasi mengenai:`
                   )
                 }
                 className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-4 rounded-xl text-xs transition-colors cursor-pointer shadow-2xs"
@@ -572,7 +572,7 @@ export const OfficersView: React.FC<OfficersViewProps> = ({
                 onClick={() =>
                   handleWhatsApp(
                     sekretaris.phone || '081577665544',
-                    `Halo ${sekretaris.name} (Sekretaris RT 05), saya warga RT 05 ingin mengurus surat pengantar/administrasi warga:`
+                    `Yth. ${sekretaris.name} (Sekretaris RT 05), saya warga RT 05 ingin mengurus surat pengantar/administrasi warga:`
                   )
                 }
                 className="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-xl text-xs transition-colors cursor-pointer shadow-2xs"
@@ -637,7 +637,7 @@ export const OfficersView: React.FC<OfficersViewProps> = ({
                 onClick={() =>
                   handleWhatsApp(
                     bendahara.phone || '081399887766',
-                    `Halo ${bendahara.name} (Bendahara RT 05), saya warga RT 05 mau konfirmasi pembayaran iuran / info keuangan:`
+                    `Yth. ${bendahara.name} (Bendahara RT 05), saya warga RT 05 mau konfirmasi pembayaran iuran / info keuangan:`
                   )
                 }
                 className="w-full inline-flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2.5 px-4 rounded-xl text-xs transition-colors cursor-pointer shadow-2xs"
@@ -726,7 +726,7 @@ export const OfficersView: React.FC<OfficersViewProps> = ({
                     onClick={() =>
                       handleWhatsApp(
                         seksi.phone || '',
-                        `Halo ${seksi.name} (${seksi.role} RT 05), saya warga RT 05 hendak melapor / bertanya mengenai:`
+                        `Yth. ${seksi.name} (${seksi.role} RT 05), saya warga RT 05 hendak melapor / bertanya mengenai:`
                       )
                     }
                     className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-xs rounded-lg transition-colors cursor-pointer border border-emerald-200"

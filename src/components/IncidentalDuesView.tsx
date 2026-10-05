@@ -17,9 +17,10 @@ import {
   FileText,
   Share2,
   Home,
+  MessageCircle,
 } from 'lucide-react';
 import { Resident, IncidentalDuesProgram, IncidentalDuesPayment, RTProfile, CashTransaction } from '../types';
-import { formatRupiah, formatDateIndo, getTodayJakarta, getCleanRtRwTitle, formatDateTimeJakarta, formatDateJakarta } from '../utils/formatters';
+import { formatRupiah, formatDateIndo, getTodayJakarta, getCleanRtRwTitle, formatDateTimeJakarta, formatDateJakarta, getWhatsAppUrl } from '../utils/formatters';
 import { IncidentalReceiptModal } from './IncidentalReceiptModal';
 import { CurrencyInput } from './CurrencyInput';
 
@@ -1056,45 +1057,70 @@ export const IncidentalDuesView: React.FC<IncidentalDuesViewProps> = ({
                             )}
 
                             {!isPaid && (
-                              <div className="mt-1 flex items-center gap-1 text-[11px] text-amber-700 font-semibold">
-                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                <span>Belum membayar • Tagihan: {formatRupiah(selectedProgram.amount)}</span>
+                              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
+                                <div className="flex items-center gap-1 text-amber-700 font-semibold">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                  <span>Belum membayar • Tagihan: {formatRupiah(selectedProgram.amount)}</span>
+                                </div>
                               </div>
                             )}
                           </div>
 
                           {/* Actions */}
-                          {isAdmin && (
-                            <div className="shrink-0 flex items-center gap-2">
-                              {!isPaid ? (
-                                !isRecording ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setRecordingResidentId(res.id)}
-                                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition-colors shadow-2xs cursor-pointer"
-                                  >
-                                    Catat Bayar
-                                  </button>
+                          <div className="shrink-0 flex items-center gap-2">
+                            {!isPaid && (
+                              <a
+                                href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                                  `Yth. Bapak/Ibu ${res.name} (Rumah No. ${res.houseNo}),\n\n` +
+                                  `Pemberitahuan resmi dari Pengurus RT ${profile.rtNumber} / RW ${profile.rwNumber} Desa ${profile.subdistrict}.\n` +
+                                  `Mengingatkan mengenai iuran insidentil/swadaya warga:\n` +
+                                  `📌 Program: *${selectedProgram.title}*\n` +
+                                  `💰 Tagihan: *${formatRupiah(selectedProgram.amount)}*\n\n` +
+                                  `Mohon dapat diselesaikan pembayarannya. Terima kasih atas kerja samanya! 🙏`
+                                )}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-lg border border-emerald-300 transition-colors cursor-pointer"
+                                title="Buka WhatsApp & pilih kontak/grup penerima pengingat"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>Ingatkan WA</span>
+                              </a>
+                            )}
+                            {isAdmin && (
+                              <>
+                                {!isPaid ? (
+                                  <>
+                                    {!isRecording ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => setRecordingResidentId(res.id)}
+                                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition-colors shadow-2xs cursor-pointer"
+                                      >
+                                        Catat Bayar
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => setRecordingResidentId(null)}
+                                        className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                                      >
+                                        Batal
+                                      </button>
+                                    )}
+                                  </>
                                 ) : (
                                   <button
                                     type="button"
-                                    onClick={() => setRecordingResidentId(null)}
-                                    className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                                    onClick={() => handleCancelPayment(res.id, res.name)}
+                                    className="px-3.5 py-1.5 bg-white hover:bg-rose-50 border border-slate-200 text-rose-600 font-bold text-xs rounded-lg transition-colors cursor-pointer"
                                   >
-                                    Batal
+                                    Batalkan
                                   </button>
-                                )
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleCancelPayment(res.id, res.name)}
-                                  className="px-3.5 py-1.5 bg-white hover:bg-rose-50 border border-slate-200 text-rose-600 font-bold text-xs rounded-lg transition-colors cursor-pointer"
-                                >
-                                  Batalkan
-                                </button>
-                              )}
-                            </div>
-                          )}
+                                )}
+                              </>
+                            )}
+                          </div>
                         </div>
 
                         {/* Payment Record Capture Form (Expands inline) */}

@@ -1973,15 +1973,6 @@ export const Cashbook: React.FC<CashbookProps> = ({
           {/* Sort Order Toggle */}
           <div className="inline-flex rounded-xl bg-slate-100 p-1">
             <button
-              onClick={() => setSortOrder('asc')}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
-                sortOrder === 'asc' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600'
-              }`}
-              title="Urutkan dari transaksi pertama (No. 1 s/d 19)"
-            >
-              No. 1 s/d 19
-            </button>
-            <button
               onClick={() => setSortOrder('desc')}
               className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
                 sortOrder === 'desc' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600'
@@ -1989,6 +1980,15 @@ export const Cashbook: React.FC<CashbookProps> = ({
               title="Urutkan dari transaksi terbaru"
             >
               Terbaru di Atas
+            </button>
+            <button
+              onClick={() => setSortOrder('asc')}
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                sortOrder === 'asc' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600'
+              }`}
+              title="Urutkan dari transaksi terlama"
+            >
+              Terlama di Atas
             </button>
           </div>
 

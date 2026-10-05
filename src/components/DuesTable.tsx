@@ -1166,7 +1166,6 @@ export const DuesTable: React.FC<DuesTableProps> = ({
             <p className="text-slate-400 mt-0.5">
               • <strong>Tarif Umum:</strong> Rp {((profile.monthlyRates?.Januari ?? 60000) / 1000).toLocaleString('id-ID')}k (Jan-Mei) &amp; Rp {((profile.monthlyRates?.Juni ?? 70000) / 1000).toLocaleString('id-ID')}k (Jun-Des)
               {profile.defaultMonthlyRate ? ` / Default Rp ${(profile.defaultMonthlyRate / 1000).toLocaleString('id-ID')}k` : ''} 
-              &nbsp;|&nbsp; • Warga penerima keringanan/diskon iuran diatur pada menu <strong>Data Warga</strong>
             </p>
           </div>
         </div>

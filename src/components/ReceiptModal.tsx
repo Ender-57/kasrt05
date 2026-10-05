@@ -363,7 +363,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
               {/* Footer note */}
               <div className="mt-4 pt-2 border-t border-slate-100 text-[10px] text-slate-400 text-center">
-                Bukti sah kas transaksi lingkungan RT. Dicatat secara transparan di Aplikasi Buku Kas RT. (Ukuran Rasio 3:4)
+                Bukti sah kas transaksi lingkungan RT. Dicatat secara transparan di Aplikasi Buku Kas RT.
               </div>
             </div>
           </div>

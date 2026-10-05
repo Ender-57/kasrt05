@@ -69,7 +69,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
                 <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-mono bg-emerald-950/70 text-emerald-200 border border-emerald-500/40 px-2 py-0.5 rounded-full">
                   <Clock className="w-3 h-3 text-emerald-400 shrink-0" />
-                  Auto-logout 30 mnt inaktif
+                  
                 </span>
               </span>
             ) : (

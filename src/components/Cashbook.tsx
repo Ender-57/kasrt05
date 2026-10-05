@@ -22,6 +22,8 @@ import {
   Printer,
   Clock,
   CreditCard,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import {
   CashTransaction,
@@ -754,6 +756,26 @@ export const Cashbook: React.FC<CashbookProps> = ({
       return true;
     });
   }, [processedTransactions, searchTerm, typeFilter, categoryFilter, periodType, selectedYear, selectedMonth, selectedQuarter, customStartDate, customEndDate]);
+
+  // Cashbook Table Pagination State (50 items per page)
+  const PAGE_SIZE = 50;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset pagination to page 1 when filters or sort order change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, typeFilter, categoryFilter, sortOrder, periodType, selectedYear, selectedMonth, selectedQuarter, customStartDate, customEndDate]);
+
+  const totalPages = Math.ceil(filteredTransactions.length / PAGE_SIZE) || 1;
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedTransactions = useMemo(() => {
+    const start = (safeCurrentPage - 1) * PAGE_SIZE;
+    return filteredTransactions.slice(start, start + PAGE_SIZE);
+  }, [filteredTransactions, safeCurrentPage, PAGE_SIZE]);
+
+  const startIndex = filteredTransactions.length === 0 ? 0 : (safeCurrentPage - 1) * PAGE_SIZE + 1;
+  const endIndex = Math.min(safeCurrentPage * PAGE_SIZE, filteredTransactions.length);
 
   const handlePrintCashbook = () => {
     const printWindow = window.open('', '_blank');
@@ -2065,7 +2087,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredTransactions.map((tx) => {
+                paginatedTransactions.map((tx) => {
                   const [y, m, d] = tx.date.split('-');
                   const displayDate = `${d}-${m}-${y}`;
 
@@ -2178,13 +2200,54 @@ export const Cashbook: React.FC<CashbookProps> = ({
           </table>
         </div>
 
-        <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
-          <span>
-            Total <strong>{filteredTransactions.length}</strong> transaksi kas tercatat
-          </span>
-          <span className="text-slate-400">
-            Transparansi buku kas terbuka bagi seluruh warga RT
-          </span>
+        <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-600 flex flex-col sm:flex-row items-center justify-between gap-3 select-none">
+          <div className="flex items-center gap-2 text-slate-500">
+            <span>
+              Menampilkan <strong>{startIndex}</strong> - <strong>{endIndex}</strong> dari <strong>{filteredTransactions.length}</strong> transaksi kas tercatat
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5 ml-0 sm:ml-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={safeCurrentPage === 1}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 font-semibold text-xs hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+                  title="Halaman sebelumnya"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Sebelumnya</span>
+                </button>
+
+                <div className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg">
+                  <span className="text-slate-500 text-[11px]">Hal</span>
+                  <select
+                    value={safeCurrentPage}
+                    onChange={(e) => setCurrentPage(Number(e.target.value))}
+                    className="px-1 py-0.5 bg-transparent text-slate-900 font-bold cursor-pointer focus:outline-none text-xs"
+                  >
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-slate-500 text-[11px]">/ {totalPages}</span>
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safeCurrentPage === totalPages}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 font-semibold text-xs hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-2xs"
+                  title="Halaman berikutnya"
+                >
+                  <span className="hidden sm:inline">Berikutnya</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       </div>

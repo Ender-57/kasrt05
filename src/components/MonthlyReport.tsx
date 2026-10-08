@@ -1444,6 +1444,7 @@ export const MonthlyReport: React.FC<MonthlyReportProps> = ({
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2 pt-2 border-t border-slate-100">
             <span>Kepatuhan: <strong className="text-slate-800">{duesMetrics.complianceRate}%</strong></span>
+            <span className="text-center font-bold text-slate-700">{duesMetrics.fullyPaidHouses} dari {duesMetrics.totalOccupiedCount} KK Lunas</span>
             <span className={`font-bold px-1.5 py-0.2 rounded text-[10px] ${
               duesMetrics.complianceRate >= 90 ? 'bg-emerald-100 text-emerald-800' : duesMetrics.complianceRate >= 75 ? 'bg-blue-100 text-blue-800' : 'bg-rose-100 text-rose-800'
             }`}>

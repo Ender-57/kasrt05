@@ -121,13 +121,43 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [copiedBankNo, setCopiedBankNo] = useState(false);
 
+  // Dynamic defaults based on current local date (Jakarta timezone)
+  const currentPeriod = useMemo(() => {
+    try {
+      const todayStr = getTodayJakarta(); // YYYY-MM-DD
+      const parts = todayStr.split('-');
+      const year = parts[0] || '2026';
+      const monthNum = parseInt(parts[1] || '10', 10);
+      const keys: MonthKey[] = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      ];
+      const monthName = keys[monthNum - 1] || 'Oktober';
+      const quarterNum = Math.floor((monthNum - 1) / 3) + 1;
+      const quarterId = `Q${quarterNum}`;
+      const padZero = (n: number) => n.toString().padStart(2, '0');
+      const startD = `${year}-${padZero(monthNum)}-01`;
+      const lastDay = new Date(parseInt(year, 10), monthNum, 0).getDate();
+      const endD = `${year}-${padZero(monthNum)}-${padZero(lastDay)}`;
+      return { year, monthName, quarterId, startD, endD };
+    } catch (e) {
+      return {
+        year: '2026',
+        monthName: 'Oktober' as MonthKey,
+        quarterId: 'Q4',
+        startD: '2026-10-01',
+        endD: '2026-10-31',
+      };
+    }
+  }, []);
+
   // Period filter states
   const [periodType, setPeriodType] = useState<PeriodType>('SEMUA');
-  const [selectedYear, setSelectedYear] = useState<string>('2026');
-  const [selectedMonth, setSelectedMonth] = useState<MonthKey>('September');
-  const [selectedQuarter, setSelectedQuarter] = useState<string>('Q3');
-  const [customStartDate, setCustomStartDate] = useState<string>('2026-09-01');
-  const [customEndDate, setCustomEndDate] = useState<string>('2026-09-30');
+  const [selectedYear, setSelectedYear] = useState<string>(currentPeriod.year);
+  const [selectedMonth, setSelectedMonth] = useState<MonthKey>(currentPeriod.monthName);
+  const [selectedQuarter, setSelectedQuarter] = useState<string>(currentPeriod.quarterId);
+  const [customStartDate, setCustomStartDate] = useState<string>(currentPeriod.startD);
+  const [customEndDate, setCustomEndDate] = useState<string>(currentPeriod.endD);
 
   const handleCopyBankNo = () => {
     const accountNo = profile.bankAccountNo || '1030013542580';
@@ -200,7 +230,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
   // Salary Management States
   const [isSalaryModalOpen, setIsSalaryModalOpen] = useState(false);
   const [salaryRecipient, setSalaryRecipient] = useState('');
-  const [salaryMonth, setSalaryMonth] = useState('September 2026');
+  const [salaryMonth, setSalaryMonth] = useState(`${currentPeriod.monthName} ${currentPeriod.year}`);
   const [salaryBase, setSalaryBase] = useState<number | ''>('');
   const [salaryDeduction, setSalaryDeduction] = useState<number | ''>('');
   const [salaryDeductionType, setSalaryDeductionType] = useState<'KASBON' | 'LAINNYA'>('LAINNYA');
@@ -785,7 +815,95 @@ export const Cashbook: React.FC<CashbookProps> = ({
     }
 
     const itemsToPrint = filteredTransactions.slice().reverse(); // Sort chronologically ascending for standard ledger printing
-    const rows = itemsToPrint.map((tx, idx) => {
+
+    // Calculate Saldo Awal (cumulative balance before the start of the selected range)
+    let saldoAwal = 0;
+    if (periodType !== 'SEMUA') {
+      const sortedAll = [...transactions].sort((a, b) => {
+        const cmpDate = a.date.localeCompare(b.date);
+        if (cmpDate !== 0) return cmpDate;
+        return a.id.localeCompare(b.id);
+      });
+
+      const earliestTx = filteredTransactions.length > 0
+        ? [...filteredTransactions].sort((a, b) => {
+            const cmpDate = a.date.localeCompare(b.date);
+            if (cmpDate !== 0) return cmpDate;
+            return a.id.localeCompare(b.id);
+          })[0]
+        : null;
+
+      if (earliestTx) {
+        const idx = sortedAll.findIndex(t => t.id === earliestTx.id);
+        if (idx > 0) {
+          let running = 0;
+          for (let i = 0; i < idx; i++) {
+            const tx = sortedAll[i];
+            if (tx.type === 'MASUK') running += tx.amount;
+            else running -= tx.amount;
+          }
+          saldoAwal = running;
+        } else {
+          saldoAwal = 0;
+        }
+      } else {
+        // If there are no transactions in this period, compute the running balance of all previous transactions
+        let periodStartDate = '';
+        if (periodType === 'TAHUNAN') {
+          periodStartDate = `${selectedYear}-01-01`;
+        } else if (periodType === 'BULANAN') {
+          const mIndex = MONTH_INDEX_MAP[selectedMonth];
+          periodStartDate = `${selectedYear}-${mIndex < 10 ? `0${mIndex}` : mIndex}-01`;
+        } else if (periodType === 'TRIWULAN') {
+          const q = QUARTERS.find((item) => item.id === selectedQuarter);
+          if (q) periodStartDate = `${selectedYear}-${q.startMonth}-01`;
+        } else if (periodType === 'RENTANG_TANGGAL') {
+          periodStartDate = customStartDate || '';
+        }
+
+        if (periodStartDate) {
+          let running = 0;
+          sortedAll.forEach((tx) => {
+            if (tx.date < periodStartDate) {
+              if (tx.type === 'MASUK') running += tx.amount;
+              else running -= tx.amount;
+            }
+          });
+          saldoAwal = running;
+        }
+      }
+    }
+
+    // Direct mathematical accumulation of the printed items to ensure 100% precision
+    let totalPemasukanCetak = 0;
+    let totalPengeluaranCetak = 0;
+    itemsToPrint.forEach((tx) => {
+      if (tx.type === 'MASUK') totalPemasukanCetak += tx.amount;
+      else totalPengeluaranCetak += tx.amount;
+    });
+
+    const surplusCetak = totalPemasukanCetak - totalPengeluaranCetak;
+    const saldoAkhirCetak = periodType === 'SEMUA' ? totals.balance : saldoAwal + surplusCetak;
+
+    // Generate table rows HTML
+    let rowsHtml = '';
+    
+    // Insert Saldo Awal row if period is filtered
+    if (periodType !== 'SEMUA') {
+      rowsHtml += `
+        <tr style="background-color: #f8fafc; font-style: italic;">
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: center; color: #64748b;">-</td>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: center; font-family: monospace; color: #64748b;">-</td>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; font-weight: bold; color: #475569;">SALDO AWAL SEBELUM PERIODE</td>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: center; color: #64748b;">-</td>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: right; font-weight: bold; color: #059669;">-</td>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: right; font-weight: bold; color: #dc2626;">-</td>
+          <td style="border: 1px solid #94a3b8; padding: 6px; font-size: 10px; text-align: right; font-family: monospace; font-weight: bold; background-color: #f1f5f9; color: #1e293b;">${formatRupiah(saldoAwal)}</td>
+        </tr>
+      `;
+    }
+
+    rowsHtml += itemsToPrint.map((tx, idx) => {
       const isMasuk = tx.type === 'MASUK';
       const masukText = isMasuk ? formatRupiah(tx.amount) : '-';
       const keluarText = !isMasuk ? formatRupiah(tx.amount) : '-';
@@ -930,8 +1048,8 @@ export const Cashbook: React.FC<CashbookProps> = ({
           
           <div class="report-meta">
             <div>Periode Laporan: <span style="color: #1e3a8a; font-weight: bold;">${periodLabel}</span></div>
-            <div>Pemasukan: <span style="color: #059669; font-weight: bold;">${formatRupiah(filteredTotals.income)}</span></div>
-            <div>Pengeluaran: <span style="color: #dc2626; font-weight: bold;">${formatRupiah(filteredTotals.expense)}</span></div>
+            <div>Pemasukan: <span style="color: #059669; font-weight: bold;">${formatRupiah(totalPemasukanCetak)}</span></div>
+            <div>Pengeluaran: <span style="color: #dc2626; font-weight: bold;">${formatRupiah(totalPengeluaranCetak)}</span></div>
             <div>Tanggal Cetak: <span>${timestamp}</span></div>
           </div>
 
@@ -948,12 +1066,12 @@ export const Cashbook: React.FC<CashbookProps> = ({
               </tr>
             </thead>
             <tbody>
-              ${rows}
+              ${rowsHtml}
               <tr class="totals-row">
                 <td colspan="4" style="border: 1px solid #94a3b8; padding: 6px; text-align: right; font-weight: bold;">JUMLAH PERIODE INI:</td>
-                <td style="border: 1px solid #94a3b8; padding: 6px; text-align: right; font-weight: bold; color: #059669;">${formatRupiah(filteredTotals.income)}</td>
-                <td style="border: 1px solid #94a3b8; padding: 6px; text-align: right; font-weight: bold; color: #dc2626;">${formatRupiah(filteredTotals.expense)}</td>
-                <td style="border: 1px solid #94a3b8; padding: 6px; text-align: right; font-weight: bold; background-color: #e2e8f0;">${formatRupiah(filteredTotals.balance)}</td>
+                <td style="border: 1px solid #94a3b8; padding: 6px; text-align: right; font-weight: bold; color: #059669;">${formatRupiah(totalPemasukanCetak)}</td>
+                <td style="border: 1px solid #94a3b8; padding: 6px; text-align: right; font-weight: bold; color: #dc2626;">${formatRupiah(totalPengeluaranCetak)}</td>
+                <td style="border: 1px solid #94a3b8; padding: 6px; text-align: right; font-weight: bold; background-color: #e2e8f0;">${formatRupiah(saldoAkhirCetak)}</td>
               </tr>
             </tbody>
           </table>

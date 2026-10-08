@@ -91,6 +91,9 @@ export const DuesTable: React.FC<DuesTableProps> = ({
 
   const handleShareWhatsApp = async (resident: Resident, totalArrears: number, unpaidMonths: any[]) => {
     setIsSharing(true);
+    let blob: Blob | null = null;
+    let dataUrl = '';
+    
     try {
       const element = document.getElementById('arrears-card-to-capture');
       if (element) {
@@ -106,7 +109,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
         element.style.flexDirection = 'column';
         element.style.justifyContent = 'space-between';
 
-        const dataUrl = await toPng(element, {
+        dataUrl = await toPng(element, {
           backgroundColor: '#ffffff',
           style: {
             transform: 'scale(1)',
@@ -120,10 +123,22 @@ export const DuesTable: React.FC<DuesTableProps> = ({
 
         element.style.cssText = originalStyle;
 
-        const link = document.createElement('a');
-        link.download = `Tagihan_Iuran_No_${resident.houseNo}_${resident.name}.png`;
-        link.href = dataUrl;
-        link.click();
+        const resBlob = await fetch(dataUrl);
+        blob = await resBlob.blob();
+
+        // Copy to clipboard if supported
+        if (navigator.clipboard && navigator.clipboard.write) {
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({
+                'image/png': blob,
+              }),
+            ]);
+            console.log('Image copied to clipboard successfully.');
+          } catch (clipErr) {
+            console.warn('Clipboard copy failed:', clipErr);
+          }
+        }
       }
     } catch (error) {
       console.error('Error generating billing image:', error);
@@ -135,7 +150,7 @@ export const DuesTable: React.FC<DuesTableProps> = ({
     const waMessage =
       `📢 *PENGINGAT PEMBAYARAN IURAN WARGA RT ${profile.rtNumber}*\n\n` +
       `Yth. Bapak/Ibu *${resident.name}* (Rumah No. *${resident.houseNo}*),\n\n` +
-      `Kami menyampaikan pesan pengingat iuran rutin bulanan warga s.d. bulan *${cutoffMonth} 2026*:\n` +
+      `Kami sampaikan pesan pengingat iuran rutin bulanan warga s.d. bulan *${cutoffMonth} 2026*:\n` +
       `• *Nama Warga:* ${resident.name}\n` +
       `• *Total Tunggakan:* *${formatRupiah(totalArrears)}*\n` +
       `• *Bulan Tunggakan:* ${unpaidMonthsStr}\n\n` +
@@ -145,10 +160,46 @@ export const DuesTable: React.FC<DuesTableProps> = ({
       `• *Atas Nama:* ${profile.bankAccountHolder || profile.treasurerName || 'Bendahara RT'}\n\n` +
       `Terima kasih banyak atas kerja sama, partisipasi, dan kepedulian Anda dalam menjaga kenyamanan lingkungan kita bersama. 🙏✨`;
 
-    // Biarkan pengirim menentukan penerima di WhatsApp
-    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(waMessage)}`;
+    // Try sharing via native sharing if possible
+    let sharedNatively = false;
+    if (blob) {
+      const file = new File([blob], `Tagihan_Iuran_No_${resident.houseNo}_${resident.name}.png`, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: `Rincian Tunggakan - Rumah No. ${resident.houseNo}`,
+            text: waMessage,
+          });
+          sharedNatively = true;
+        } catch (shareErr) {
+          console.warn('Native share cancelled or failed:', shareErr);
+        }
+      }
+    }
 
-    window.open(waUrl, '_blank');
+    const cleanPhone = resident.phone ? resident.phone.replace(/\D/g, '') : '';
+    const formattedPhone = cleanPhone
+      ? (cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone)
+      : '';
+
+    const waUrl = formattedPhone
+      ? `https://wa.me/${formattedPhone}?text=${encodeURIComponent(waMessage)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(waMessage)}`;
+
+    if (!sharedNatively) {
+      if (dataUrl) {
+        const link = document.createElement('a');
+        link.download = `Tagihan_Iuran_No_${resident.houseNo}_${resident.name}.png`;
+        link.href = dataUrl;
+        link.click();
+      }
+      alert(
+        "Gambar Kartu Tagihan Rincian Tunggakan berhasil diunduh dan otomatis disalin ke clipboard Anda!\n\n" +
+        "Sistem akan mengarahkan Anda ke WhatsApp. Silakan pilih kontak/chat warga tersebut lalu Tempel (Paste/Ctrl+V) gambar rincian tunggakan ini."
+      );
+      window.open(waUrl, '_blank');
+    }
   };
 
   const balance = useMemo(() => {

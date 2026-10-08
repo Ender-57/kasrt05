@@ -43,13 +43,11 @@ export const PaymentCorrectionModal: React.FC<PaymentCorrectionModalProps> = ({
   profile,
   onApplyCorrection,
 }) => {
-  if (!isOpen || !resident) return null;
-
-  // Find all months with existing payments
-  const paidMonths = MONTHS.filter((m) => resident.payments[m]?.paid);
+  // Find all months with existing payments safely
+  const paidMonths = resident ? MONTHS.filter((m) => resident.payments[m]?.paid) : [];
 
   const [selectedMonth, setSelectedMonth] = useState<MonthKey>(() => {
-    if (initialMonth && resident.payments[initialMonth]?.paid) {
+    if (resident && initialMonth && resident.payments[initialMonth]?.paid) {
       return initialMonth;
     }
     return paidMonths[0] || 'Januari';
@@ -58,7 +56,7 @@ export const PaymentCorrectionModal: React.FC<PaymentCorrectionModalProps> = ({
   const [activeMode, setActiveMode] = useState<'UPDATE' | 'VOID'>('UPDATE');
 
   // Edit fields
-  const currentPayment = resident.payments[selectedMonth];
+  const currentPayment = resident ? resident.payments[selectedMonth] : undefined;
   const [editAmount, setEditAmount] = useState<number>(currentPayment?.amount || 0);
   const [editMethod, setEditMethod] = useState<'Tunai' | 'Transfer Bank' | 'QRIS RT'>(
     currentPayment?.paymentMethod || 'Tunai'
@@ -81,7 +79,7 @@ export const PaymentCorrectionModal: React.FC<PaymentCorrectionModalProps> = ({
         setSelectedMonth(validPaid[0]);
       }
     }
-  }, [isOpen, initialMonth, resident]);
+  }, [isOpen, initialMonth, resident, selectedMonth]);
 
   // Sync state when selectedMonth changes
   useEffect(() => {
@@ -93,6 +91,8 @@ export const PaymentCorrectionModal: React.FC<PaymentCorrectionModalProps> = ({
       setEditPaidAt(p.paidAt || getTodayJakarta());
     }
   }, [selectedMonth, resident]);
+
+  if (!isOpen || !resident) return null;
 
   const finalReason =
     correctionReason === 'Lainnya' ? customReasonText || 'Koreksi pengurus' : correctionReason;

@@ -765,33 +765,67 @@ export const DuesTable: React.FC<DuesTableProps> = ({
       if (r.id !== selectedResident.id) return r;
 
       const newPayments = { ...r.payments };
-      const perMonthNominal = calculatedPayAmount / selectedMonths.length;
-
       const numericAdminFee = typeof adminFee === 'number' ? adminFee : Number(adminFee) || 0;
 
-      selectedMonths.forEach((m) => {
+      // Sort selected months chronologically
+      const sortedSelectedMonths = [...selectedMonths].sort((a, b) => MONTHS.indexOf(a) - MONTHS.indexOf(b));
+
+      // Calculate the shortfall for each of the selected months
+      const monthShortfalls = sortedSelectedMonths.map((m) => {
+        const rate = getRateForMonth(r, m);
         const existing = newPayments[m];
         const existingAmount = existing?.paid ? existing.amount : 0;
-        const totalAmountForMonth = existingAmount + Math.round(perMonthNominal);
+        const shortfall = Math.max(0, rate - existingAmount);
+        return {
+          month: m,
+          rate,
+          existingAmount,
+          shortfall,
+        };
+      });
 
+      const totalShortfall = monthShortfalls.reduce((sum, item) => sum + item.shortfall, 0);
+
+      // Distribute calculatedPayAmount chronologically
+      let remaining = calculatedPayAmount;
+
+      monthShortfalls.forEach((item, index) => {
+        let allocated = 0;
+
+        if (totalShortfall === 0) {
+          // If already fully paid (totalShortfall = 0), fall back to dividing evenly
+          allocated = Math.round(calculatedPayAmount / sortedSelectedMonths.length);
+        } else if (index === monthShortfalls.length - 1) {
+          // Last selected month gets the remaining portion to avoid rounding issues
+          allocated = remaining;
+        } else {
+          // Fill shortfall for this month
+          if (remaining >= item.shortfall) {
+            allocated = item.shortfall;
+          } else {
+            allocated = remaining;
+          }
+        }
+
+        remaining = Math.max(0, remaining - allocated);
+        const totalAmountForMonth = item.existingAmount + allocated;
+
+        const existing = newPayments[item.month];
         const paymentNoteValue = paymentNote 
           ? (existing?.note ? `${existing.note}; ${paymentNote}` : paymentNote)
-          : existingAmount > 0 
-          ? `Pelunasan cicilan (sebelumnya titip ${formatRupiah(existingAmount)})`
+          : item.existingAmount > 0 
+          ? `Pelunasan cicilan (sebelumnya titip ${formatRupiah(item.existingAmount)})`
           : null;
 
-        newPayments[m] = {
-          paid: true,
+        newPayments[item.month] = {
+          paid: totalAmountForMonth > 0,
           amount: totalAmountForMonth,
           paidAt: today,
           receiptNo,
           paymentMethod,
           adminFee: numericAdminFee > 0 ? numericAdminFee : undefined,
+          note: paymentNoteValue !== null ? paymentNoteValue : undefined,
         };
-
-        if (paymentNoteValue !== null) {
-          newPayments[m].note = paymentNoteValue;
-        }
       });
 
       const recalculatedArrears = calculateArrearsForResident(r, newPayments, cutoffMonth);
@@ -1169,45 +1203,6 @@ export const DuesTable: React.FC<DuesTableProps> = ({
             </p>
           </div>
         </div>
-
-        {isAdmin && (
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => {
-                const first = residents.find((r) => !r.isVacant);
-                if (first) handleOpenPayModal(first);
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-colors shadow-2xs cursor-pointer"
-            >
-              <CreditCard className="w-4 h-4" />
-              <span>Catat Iuran Baru</span>
-            </button>
-            <button
-              onClick={() => {
-                const firstWithPayment = residents.find((r) =>
-                  MONTHS.some((m) => r.payments[m]?.paid)
-                );
-                if (firstWithPayment) {
-                  handleOpenCorrectionModal(firstWithPayment);
-                } else {
-                  alert('Belum ada data pembayaran yang tersimpan untuk dikoreksi.');
-                }
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-600/90 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors shadow-2xs cursor-pointer"
-              title="Koreksi nominal atau batalkan pembayaran yang salah diinput"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>Koreksi Iuran</span>
-            </button>
-            <button
-              onClick={() => handleOpenResidentModal()}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-xl border border-slate-700 transition-colors cursor-pointer"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Tambah Rumah</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Filter and Search Bar */}

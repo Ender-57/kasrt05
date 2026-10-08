@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Printer, Share2, CheckCircle2, ShieldCheck, Download, Loader2 } from 'lucide-react';
+import { X, Printer, Share2, CheckCircle2, ShieldCheck, Download, Loader2, FileText } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { Resident, RTProfile, IncidentalDuesProgram, IncidentalDuesPayment } from '../types';
 import { formatRupiah, formatDateIndo, terbilang, getOfficerForDate, getCleanRtRwTitle } from '../utils/formatters';
@@ -22,8 +22,33 @@ export const IncidentalReceiptModal: React.FC<IncidentalReceiptModalProps> = ({
   profile,
 }) => {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string>('');
+  const [scale, setScale] = useState<number>(1);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const updateScale = () => {
+      if (containerRef.current) {
+        const availableWidth = containerRef.current.clientWidth - 24;
+        if (availableWidth < 600 && availableWidth > 0) {
+          setScale(Math.max(0.45, availableWidth / 600));
+        } else {
+          setScale(1);
+        }
+      }
+    };
+
+    updateScale();
+    const timer = setTimeout(updateScale, 50);
+    window.addEventListener('resize', updateScale);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateScale);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -167,59 +192,46 @@ export const IncidentalReceiptModal: React.FC<IncidentalReceiptModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in duration-200">
-        {/* Modal Top Actions (Hidden when printing) */}
-        <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white print:hidden">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-emerald-400" />
-            <span className="font-semibold text-sm tracking-wide">Kuitansi Digital RT Resmi (Insidentil)</span>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <button
-              onClick={handleDownload}
-              disabled={isDownloading}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white rounded-lg transition-colors cursor-pointer shadow-xs"
-              title="Unduh kuitansi sebagai gambar PNG"
-            >
-              {isDownloading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5" />
-              )}
-              <span>{isDownloading ? 'Mengunduh...' : 'Download'}</span>
-            </button>
-            <button
-              onClick={handleShareWhatsApp}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 rounded-lg transition-colors cursor-pointer"
-              title="Kirim bukti ke WhatsApp"
-            >
-              <Share2 className="w-3.5 h-3.5" />
-              <span>WhatsApp</span>
-            </button>
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors cursor-pointer shadow-xs"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Cetak</span>
-            </button>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs p-2 sm:p-4">
+      <div className="min-h-full flex items-center justify-center p-0 sm:p-2 text-center">
+        <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in duration-200 text-left">
+          {/* Modal Header */}
+          <div className="px-4 sm:px-6 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between print:hidden">
+            <div className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-emerald-600" />
+              <h3 className="font-bold text-slate-800 text-sm sm:text-base">Pratinjau Kuitansi Swadaya</h3>
+            </div>
             <button
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors ml-1 cursor-pointer"
+              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-full transition-colors cursor-pointer"
+              title="Tutup Modal"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
-        </div>
 
-        {/* Printable Receipt Body */}
-        <div className="overflow-x-auto bg-amber-50/30 p-4 sm:p-6 flex justify-start sm:justify-center text-slate-800 print:bg-white print:p-0">
-          <div 
-            ref={receiptRef} 
-            className="w-[600px] h-[800px] shrink-0 border-4 border-double border-slate-700 p-6 rounded-lg bg-white shadow-xs relative overflow-hidden flex flex-col justify-between"
-            style={{ width: '600px', height: '800px', aspectRatio: '3/4' }}
+          {/* Printable Receipt Body */}
+          <div
+            ref={containerRef}
+            className="w-full bg-amber-50/30 p-3 sm:p-6 flex items-center justify-center text-slate-800 print:bg-white print:p-0 overflow-hidden"
           >
+            <div
+              style={{
+                width: `${Math.round(600 * scale)}px`,
+                height: `${Math.round(800 * scale)}px`,
+              }}
+              className="relative flex items-center justify-center shrink-0 transition-all duration-150"
+            >
+              <div 
+                ref={receiptRef} 
+                className="w-[600px] h-[800px] border-4 border-double border-slate-700 p-6 rounded-lg bg-white shadow-xs relative overflow-hidden flex flex-col justify-between origin-top-left"
+                style={{
+                  transform: `scale(${scale})`,
+                  width: '600px',
+                  height: '800px',
+                  aspectRatio: '3/4',
+                }}
+              >
             {/* Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.04] select-none rotate-[-25deg]">
               <span className="text-8xl font-black text-slate-900">LUNAS</span>
@@ -350,35 +362,42 @@ export const IncidentalReceiptModal: React.FC<IncidentalReceiptModalProps> = ({
             </div>
           </div>
         </div>
+      </div>
 
         {/* Modal Bottom Actions */}
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
-          
+        <div className="px-4 sm:px-6 py-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={handleDownload}
               disabled={isDownloading}
-              className="flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white rounded-lg transition-colors cursor-pointer shadow-xs"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white rounded-lg transition-colors cursor-pointer shadow-xs"
             >
               {isDownloading ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
                 <Download className="w-3.5 h-3.5" />
               )}
-              <span>{isDownloading ? 'Mengunduh...' : 'Download Kuitansi'}</span>
+              <span>{isDownloading ? 'Mengunduh...' : 'Download PNG'}</span>
             </button>
             <button
               onClick={handleShareWhatsAppPNG}
               disabled={isDownloading}
-              className="flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 disabled:bg-emerald-800 text-white border border-emerald-800 rounded-lg transition-colors cursor-pointer"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-emerald-700 hover:bg-emerald-600 disabled:bg-emerald-800 text-white rounded-lg transition-colors cursor-pointer shadow-xs"
               title="Kirim gambar kuitansi PNG ke WhatsApp"
             >
-              <Share2 className="w-3.5 h-3.5" />
-              <span>Share WA (PNG)</span>
+              <Share2 className="w-3.5 h-3.5 text-emerald-300" />
+              <span>Share WA</span>
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors cursor-pointer shadow-xs"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Cetak / PDF</span>
             </button>
             <button
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              className="flex-1 sm:flex-none px-4 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
             >
               Tutup
             </button>
@@ -386,5 +405,6 @@ export const IncidentalReceiptModal: React.FC<IncidentalReceiptModalProps> = ({
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };

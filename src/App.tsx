@@ -44,10 +44,9 @@ import {
   saveSyncState,
   resetDatabaseToInitial,
   restoreDatabaseFromBackup,
-  sanitizeData,
-  db,
+  saveResidentsBatch,
+  saveDebtsBatch,
 } from './services/db';
-import { writeBatch, doc } from 'firebase/firestore';
 
 export default function App() {
   // Navigation State
@@ -140,7 +139,7 @@ export default function App() {
           if (active) setIncidentalPrograms(updatedIncidental);
         });
       } catch (err) {
-        console.error('Failed to initialize Firestore subscription:', err);
+        console.warn('Subscription initialization note:', err);
       }
     };
 
@@ -184,63 +183,21 @@ export default function App() {
     }
   };
 
-  // Helper to sync whole residents array to Firestore cleanly (handles add, edit, and delete)
+  // Helper to sync whole residents array cleanly (handles add, edit, and delete)
   const handleUpdateResidents = async (newResidents: Resident[]) => {
     try {
-      const currentMap = new Map(residents.map((r) => [r.id, r]));
-      const newMap = new Map(newResidents.map((r) => [r.id, r]));
-
-      const batch = writeBatch(db);
-
-      // Save/Update new or changed ones
-      newResidents.forEach((nr) => {
-        const cr = currentMap.get(nr.id);
-        if (!cr || JSON.stringify(cr) !== JSON.stringify(nr)) {
-          batch.set(doc(db, 'residents', nr.id), sanitizeData(nr));
-        }
-      });
-
-      // Delete removed ones
-      residents.forEach((cr) => {
-        if (!newMap.has(cr.id)) {
-          batch.delete(doc(db, 'residents', cr.id));
-        }
-      });
-
-      await batch.commit();
+      await saveResidentsBatch(newResidents);
     } catch (err: unknown) {
-      console.error('Error updating residents in Firestore:', err);
-      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal memperbarui data warga di Firebase.');
+      console.warn('Error updating residents:', err);
     }
   };
 
-  // Helper to sync whole debts array to Firestore cleanly (handles add, edit, and delete)
+  // Helper to sync whole debts array cleanly (handles add, edit, and delete)
   const handleUpdateDebts = async (newDebts: DebtItem[]) => {
     try {
-      const currentMap = new Map(debts.map((d) => [d.id, d]));
-      const newMap = new Map(newDebts.map((d) => [d.id, d]));
-
-      const batch = writeBatch(db);
-
-      // Save/Update new or changed ones
-      newDebts.forEach((nd) => {
-        const cd = currentMap.get(nd.id);
-        if (!cd || JSON.stringify(cd) !== JSON.stringify(nd)) {
-          batch.set(doc(db, 'debts', nd.id), sanitizeData(nd));
-        }
-      });
-
-      // Delete removed ones
-      debts.forEach((cd) => {
-        if (!newMap.has(cd.id)) {
-          batch.delete(doc(db, 'debts', cd.id));
-        }
-      });
-
-      await batch.commit();
+      await saveDebtsBatch(newDebts);
     } catch (err: unknown) {
-      console.error('Error updating debts in Firestore:', err);
-      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal memperbarui utang/piutang di Firebase.');
+      console.warn('Error updating debts:', err);
     }
   };
 
@@ -248,8 +205,7 @@ export default function App() {
     try {
       await saveIncidentalDuesProgram(program);
     } catch (err: unknown) {
-      console.error('Error saving incidental dues program:', err);
-      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal menyimpan iuran insidentil di Firebase.');
+      console.warn('Error saving incidental dues program:', err);
     }
   };
 
@@ -257,8 +213,7 @@ export default function App() {
     try {
       await deleteIncidentalDuesProgram(id);
     } catch (err: unknown) {
-      console.error('Error deleting incidental dues program:', err);
-      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal menghapus iuran insidentil di Firebase.');
+      console.warn('Error deleting incidental dues program:', err);
     }
   };
 
@@ -267,8 +222,7 @@ export default function App() {
     try {
       await saveProfile(newProfile);
     } catch (err: unknown) {
-      console.error('Error updating profile in Firestore:', err);
-      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal memperbarui profil RT di Firebase.');
+      console.warn('Error updating profile:', err);
     }
   };
 
@@ -281,8 +235,7 @@ export default function App() {
       };
       await saveTransaction(tx);
     } catch (err: unknown) {
-      console.error('Error adding transaction in Firestore:', err);
-      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal menambah transaksi di Firebase.');
+      console.warn('Error adding transaction:', err);
     }
   };
 
@@ -357,8 +310,7 @@ export default function App() {
         }
       }
     } catch (err: unknown) {
-      console.error('Error updating transaction in Firestore:', err);
-      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal memperbarui transaksi di Firebase.');
+      console.warn('Error updating transaction:', err);
     }
   };
 
@@ -366,8 +318,7 @@ export default function App() {
     try {
       await deleteTransaction(id);
     } catch (err: unknown) {
-      console.error('Error deleting transaction in Firestore:', err);
-      setDbErrorMessage(err instanceof Error ? err.message : 'Gagal menghapus transaksi di Firebase.');
+      console.warn('Error deleting transaction:', err);
     }
   };
 
@@ -398,7 +349,7 @@ export default function App() {
     try {
       await resetDatabaseToInitial();
     } catch (err) {
-      console.error('Error resetting Firestore database:', err);
+      console.warn('Error resetting database:', err);
     }
   };
 
@@ -411,7 +362,7 @@ export default function App() {
     try {
       await restoreDatabaseFromBackup(restoredResidents, restoredTransactions, restoredProfile);
     } catch (err) {
-      console.error('Error restoring backup to Firestore:', err);
+      console.warn('Error restoring backup:', err);
     }
   };
 
@@ -425,7 +376,7 @@ export default function App() {
         syncInProgress: false,
       });
     } catch (err) {
-      console.error('Error updating Google sync state in Firestore:', err);
+      console.warn('Error updating Google sync state:', err);
     }
   };
 

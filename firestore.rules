@@ -12,6 +12,11 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid != null;
     }
 
+    // --- Connection test ---
+    match /test/{testId} {
+      allow read: if true;
+    }
+
     // --- Profile Rules ---
     match /profile/{profileId} {
       allow read: if true;

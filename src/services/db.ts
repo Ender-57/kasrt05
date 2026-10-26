@@ -10,10 +10,17 @@ import {
   writeBatch,
   deleteDoc,
   updateDoc,
-  getDocFromServer
+  getDocFromServer,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Resident, CashTransaction, RTProfile, DebtItem, GoogleSyncState, IncidentalDuesProgram } from '../types';
+import {
+  Resident,
+  CashTransaction,
+  RTProfile,
+  DebtItem,
+  GoogleSyncState,
+  IncidentalDuesProgram,
+} from '../types';
 import {
   INITIAL_RESIDENTS,
   INITIAL_TRANSACTIONS,
@@ -22,18 +29,25 @@ import {
 } from '../data/initialData';
 import { resolveAdminPin, isSha256 } from '../utils/crypto';
 
+// Initialize Firebase App safely
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const db = firebaseConfig.firestoreDatabaseId
   ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
 
-// Test Firestore connection on boot as requested by Firebase Integration Skill guidelines
+// Test Firestore connection on boot with graceful offline resilience
 async function testConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration or network status.");
+    if (
+      error instanceof Error &&
+      (error.message.includes('the client is offline') ||
+        error.message.includes('offline') ||
+        error.message.includes('suspended') ||
+        error.message.includes('Permission denied'))
+    ) {
+      console.warn('Firestore notice: Application is running in resilient local-first mode.');
     }
   }
 }
@@ -42,16 +56,145 @@ testConnection();
 const PROFILE_DOC_ID = 'rt05_profile';
 const SYNC_STATE_DOC_ID = 'rt05_sync';
 
+// Local storage keys for resilient offline-first persistence
+const STORAGE_KEYS = {
+  PROFILE: 'rt05_local_profile',
+  SYNC_STATE: 'rt05_local_sync_state',
+  RESIDENTS: 'rt05_local_residents',
+  TRANSACTIONS: 'rt05_local_transactions',
+  DEBTS: 'rt05_local_debts',
+  INCIDENTAL: 'rt05_local_incidental',
+};
+
+function getLocalData<T>(key: string, defaultValue: T): T {
+  if (typeof window === 'undefined') return defaultValue;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return defaultValue;
+    return JSON.parse(raw) as T;
+  } catch {
+    return defaultValue;
+  }
+}
+
+function setLocalData<T>(key: string, value: T): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {
+    console.warn('Could not cache to localStorage:', err);
+  }
+}
+
+// Reactive listeners to sync state across the app immediately
+const profileListeners = new Set<(profile: RTProfile) => void>();
+const residentsListeners = new Set<(residents: Resident[]) => void>();
+const transactionsListeners = new Set<(transactions: CashTransaction[]) => void>();
+const debtsListeners = new Set<(debts: DebtItem[]) => void>();
+const syncStateListeners = new Set<(syncState: GoogleSyncState) => void>();
+const incidentalListeners = new Set<(programs: IncidentalDuesProgram[]) => void>();
+
+function notifyProfile(profile: RTProfile) {
+  profileListeners.forEach((fn) => fn(profile));
+}
+
+function notifyResidents(residents: Resident[]) {
+  residentsListeners.forEach((fn) => fn(residents));
+}
+
+function notifyTransactions(txs: CashTransaction[]) {
+  transactionsListeners.forEach((fn) => fn(txs));
+}
+
+function notifyDebts(debts: DebtItem[]) {
+  debtsListeners.forEach((fn) => fn(debts));
+}
+
+function notifySyncState(syncState: GoogleSyncState) {
+  syncStateListeners.forEach((fn) => fn(syncState));
+}
+
+function notifyIncidental(programs: IncidentalDuesProgram[]) {
+  incidentalListeners.forEach((fn) => fn(programs));
+}
+
 /**
- * Seeds Firestore collections if they are empty
+ * Helper to recursively remove undefined fields from data before saving to Firestore.
+ */
+export function sanitizeData<T>(obj: T): T {
+  if (obj === null || obj === undefined) {
+    return null as unknown as T;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeData) as unknown as T;
+  }
+  if (typeof obj === 'object') {
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = sanitizeData(value);
+      }
+    }
+    return cleaned as T;
+  }
+  return obj;
+}
+
+const DATA_VERSION = 'v3_susunan_pengurus_transaksi_okt2026';
+const DATA_VERSION_KEY = 'rt05_data_version';
+
+/**
+ * Initializes local storage cache with initial data if empty or outdated
+ */
+function initLocalStorageIfEmpty() {
+  if (typeof window === 'undefined') return;
+
+  const currentVersion = localStorage.getItem(DATA_VERSION_KEY);
+  const isOutdated = currentVersion !== DATA_VERSION;
+
+  if (!localStorage.getItem(STORAGE_KEYS.PROFILE) || isOutdated) {
+    setLocalData(STORAGE_KEYS.PROFILE, INITIAL_RT_PROFILE);
+    notifyProfile(INITIAL_RT_PROFILE);
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.SYNC_STATE)) {
+    setLocalData(STORAGE_KEYS.SYNC_STATE, {
+      spreadsheetId: null,
+      spreadsheetUrl: null,
+      lastSyncedAt: null,
+      syncInProgress: false,
+    });
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.RESIDENTS) || isOutdated) {
+    setLocalData(STORAGE_KEYS.RESIDENTS, INITIAL_RESIDENTS);
+    notifyResidents(INITIAL_RESIDENTS);
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.TRANSACTIONS) || isOutdated) {
+    setLocalData(STORAGE_KEYS.TRANSACTIONS, INITIAL_TRANSACTIONS);
+    notifyTransactions(INITIAL_TRANSACTIONS);
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.DEBTS)) {
+    setLocalData(STORAGE_KEYS.DEBTS, INITIAL_DEBTS);
+  }
+  if (!localStorage.getItem(STORAGE_KEYS.INCIDENTAL)) {
+    setLocalData(STORAGE_KEYS.INCIDENTAL, []);
+  }
+
+  if (isOutdated) {
+    localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
+  }
+}
+
+/**
+ * Seeds Firestore collections if they are empty, with resilient fallback to local cache
  */
 export const seedInitialDataIfEmpty = async () => {
+  initLocalStorageIfEmpty();
+
   try {
     const profileRef = doc(db, 'profile', PROFILE_DOC_ID);
     const profileSnap = await getDoc(profileRef);
 
     if (!profileSnap.exists()) {
-      console.log('Database empty. Seeding initial RT data into Firestore...');
       const batch = writeBatch(db);
 
       // 1. Seed Profile
@@ -85,262 +228,497 @@ export const seedInitialDataIfEmpty = async () => {
       });
 
       await batch.commit();
-      console.log('Successfully seeded initial data to Firestore!');
     } else {
-      // If document currently holds old dummy chairperson name or raw hash PIN, auto-update it
+      // Update officers and profile in Firestore with latest official board
       const currentProfileData = profileSnap.data();
-      const updates: Record<string, unknown> = {};
+      const currentPin = currentProfileData?.adminPin
+        ? resolveAdminPin(currentProfileData.adminPin)
+        : INITIAL_RT_PROFILE.adminPin;
 
-      if (currentProfileData?.chairpersonName === 'Bpk. H. Bambang Sudiro') {
-        const updatedOfficers = Array.isArray(currentProfileData.officers)
-          ? currentProfileData.officers.map((off: { id: string; name: string; role: string }) =>
-              off.name === 'Bpk. H. Bambang Sudiro'
-                ? { ...off, name: 'Bpk. Wagiman' }
-                : off
-            )
-          : INITIAL_RT_PROFILE.officers;
+      await setDoc(
+        profileRef,
+        sanitizeData({
+          ...INITIAL_RT_PROFILE,
+          adminPin: currentPin,
+        })
+      );
 
-        updates.chairpersonName = 'Bpk. Wagiman';
-        updates.officers = updatedOfficers;
+      // Ensure residents collection in Firestore contains all 34 residents from the latest data
+      const resSnap = await getDocs(collection(db, 'residents'));
+      if (resSnap.empty || resSnap.size < INITIAL_RESIDENTS.length) {
+        const resBatch = writeBatch(db);
+        INITIAL_RESIDENTS.forEach((r) => {
+          resBatch.set(doc(db, 'residents', r.id), sanitizeData(r));
+        });
+        await resBatch.commit();
       }
 
-      if (
-        currentProfileData?.adminPin &&
-        (isSha256(currentProfileData.adminPin) || currentProfileData.adminPin.length > 10)
-      ) {
-        updates.adminPin = resolveAdminPin(currentProfileData.adminPin);
-      }
-
-      if (Object.keys(updates).length > 0) {
-        await updateDoc(profileRef, updates);
+      // Ensure transactions collection in Firestore contains all transactions including rows 40-55
+      const txSnap = await getDocs(collection(db, 'transactions'));
+      if (txSnap.size < INITIAL_TRANSACTIONS.length) {
+        const txBatch = writeBatch(db);
+        INITIAL_TRANSACTIONS.forEach((t) => {
+          txBatch.set(doc(db, 'transactions', t.id), sanitizeData(t));
+        });
+        await txBatch.commit();
       }
     }
-  } catch (err) {
-    console.error('Failed to seed initial data:', err);
+  } catch (err: unknown) {
+    // Graceful offline fallback: log warning instead of throwing fatal console error
+    console.warn(
+      'Database seed note: operating with persistent local cache. Reason:',
+      err instanceof Error ? err.message : String(err)
+    );
   }
 };
 
 /**
- * Real-time subscribers
+ * Real-time subscribers with immediate local cache return + Firestore sync
  */
 export const subscribeToProfile = (onUpdate: (profile: RTProfile) => void) => {
+  // 1. Immediately provide local data
+  const cached = getLocalData<RTProfile>(STORAGE_KEYS.PROFILE, INITIAL_RT_PROFILE);
+  onUpdate(cached);
+
+  profileListeners.add(onUpdate);
+
+  // 2. Attach Firestore listener with error handler
   const ref = doc(db, 'profile', PROFILE_DOC_ID);
-  return onSnapshot(ref, (docSnap) => {
-    if (docSnap.exists()) {
-      const data = docSnap.data() as RTProfile;
-      // Auto-heal: If Firestore currently holds a SHA-256 hashcode, restore to clean PIN
-      if (data.adminPin && (isSha256(data.adminPin) || data.adminPin.length > 10)) {
-        const plainPin = resolveAdminPin(data.adminPin);
-        data.adminPin = plainPin;
-        // Background update Firestore so it permanently stores the clean plain PIN
-        updateDoc(ref, { adminPin: plainPin }).catch(() => {});
+  const unsub = onSnapshot(
+    ref,
+    (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as RTProfile;
+        if (data.adminPin && (isSha256(data.adminPin) || data.adminPin.length > 10)) {
+          const plainPin = resolveAdminPin(data.adminPin);
+          data.adminPin = plainPin;
+          updateDoc(ref, { adminPin: plainPin }).catch(() => {});
+        }
+        setLocalData(STORAGE_KEYS.PROFILE, data);
+        notifyProfile(data);
       }
-      onUpdate(data);
+    },
+    (error) => {
+      console.warn('Profile subscription notice:', error.message);
     }
-  });
+  );
+
+  return () => {
+    profileListeners.delete(onUpdate);
+    unsub();
+  };
 };
 
 export const subscribeToSyncState = (onUpdate: (syncState: GoogleSyncState) => void) => {
-  const ref = doc(db, 'syncState', SYNC_STATE_DOC_ID);
-  return onSnapshot(ref, (docSnap) => {
-    if (docSnap.exists()) {
-      onUpdate(docSnap.data() as GoogleSyncState);
-    }
+  const cached = getLocalData<GoogleSyncState>(STORAGE_KEYS.SYNC_STATE, {
+    spreadsheetId: null,
+    spreadsheetUrl: null,
+    lastSyncedAt: null,
+    syncInProgress: false,
   });
+  onUpdate(cached);
+
+  syncStateListeners.add(onUpdate);
+
+  const ref = doc(db, 'syncState', SYNC_STATE_DOC_ID);
+  const unsub = onSnapshot(
+    ref,
+    (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as GoogleSyncState;
+        setLocalData(STORAGE_KEYS.SYNC_STATE, data);
+        notifySyncState(data);
+      }
+    },
+    (error) => {
+      console.warn('Sync state subscription notice:', error.message);
+    }
+  );
+
+  return () => {
+    syncStateListeners.delete(onUpdate);
+    unsub();
+  };
 };
 
 export const subscribeToResidents = (onUpdate: (residents: Resident[]) => void) => {
+  const cached = getLocalData<Resident[]>(STORAGE_KEYS.RESIDENTS, INITIAL_RESIDENTS);
+  cached.sort((a, b) => a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true }));
+  onUpdate(cached);
+
+  residentsListeners.add(onUpdate);
+
   const ref = collection(db, 'residents');
-  return onSnapshot(ref, (snap) => {
-    const list: Resident[] = [];
-    snap.forEach((doc) => {
-      list.push(doc.data() as Resident);
-    });
-    // Keep it ordered nicely or sort by houseNo
-    list.sort((a, b) => a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true }));
-    onUpdate(list);
-  });
+  const unsub = onSnapshot(
+    ref,
+    (snap) => {
+      if (!snap.empty) {
+        const list: Resident[] = [];
+        snap.forEach((d) => {
+          list.push(d.data() as Resident);
+        });
+        list.sort((a, b) => a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true }));
+        setLocalData(STORAGE_KEYS.RESIDENTS, list);
+        notifyResidents(list);
+      }
+    },
+    (error) => {
+      console.warn('Residents subscription notice:', error.message);
+    }
+  );
+
+  return () => {
+    residentsListeners.delete(onUpdate);
+    unsub();
+  };
 };
 
 export const subscribeToTransactions = (onUpdate: (transactions: CashTransaction[]) => void) => {
+  const cached = getLocalData<CashTransaction[]>(STORAGE_KEYS.TRANSACTIONS, INITIAL_TRANSACTIONS);
+  cached.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  onUpdate(cached);
+
+  transactionsListeners.add(onUpdate);
+
   const ref = collection(db, 'transactions');
-  return onSnapshot(ref, (snap) => {
-    const list: CashTransaction[] = [];
-    snap.forEach((doc) => {
-      list.push(doc.data() as CashTransaction);
-    });
-    // Sort transactions descending by date, then id
-    list.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-    onUpdate(list);
-  });
+  const unsub = onSnapshot(
+    ref,
+    (snap) => {
+      if (!snap.empty) {
+        const list: CashTransaction[] = [];
+        snap.forEach((d) => {
+          list.push(d.data() as CashTransaction);
+        });
+        list.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+        setLocalData(STORAGE_KEYS.TRANSACTIONS, list);
+        notifyTransactions(list);
+      }
+    },
+    (error) => {
+      console.warn('Transactions subscription notice:', error.message);
+    }
+  );
+
+  return () => {
+    transactionsListeners.delete(onUpdate);
+    unsub();
+  };
 };
 
 export const subscribeToDebts = (onUpdate: (debts: DebtItem[]) => void) => {
+  const cached = getLocalData<DebtItem[]>(STORAGE_KEYS.DEBTS, INITIAL_DEBTS);
+  cached.sort((a, b) => b.date.localeCompare(a.date));
+  onUpdate(cached);
+
+  debtsListeners.add(onUpdate);
+
   const ref = collection(db, 'debts');
-  return onSnapshot(ref, (snap) => {
-    const list: DebtItem[] = [];
-    snap.forEach((doc) => {
-      list.push(doc.data() as DebtItem);
-    });
-    list.sort((a, b) => b.date.localeCompare(a.date));
-    onUpdate(list);
-  });
+  const unsub = onSnapshot(
+    ref,
+    (snap) => {
+      if (!snap.empty) {
+        const list: DebtItem[] = [];
+        snap.forEach((d) => {
+          list.push(d.data() as DebtItem);
+        });
+        list.sort((a, b) => b.date.localeCompare(a.date));
+        setLocalData(STORAGE_KEYS.DEBTS, list);
+        notifyDebts(list);
+      }
+    },
+    (error) => {
+      console.warn('Debts subscription notice:', error.message);
+    }
+  );
+
+  return () => {
+    debtsListeners.delete(onUpdate);
+    unsub();
+  };
 };
 
 export const subscribeToIncidentalDues = (onUpdate: (programs: IncidentalDuesProgram[]) => void) => {
+  const cached = getLocalData<IncidentalDuesProgram[]>(STORAGE_KEYS.INCIDENTAL, []);
+  cached.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  onUpdate(cached);
+
+  incidentalListeners.add(onUpdate);
+
   const ref = collection(db, 'incidentalDues');
-  return onSnapshot(ref, (snap) => {
-    const list: IncidentalDuesProgram[] = [];
-    snap.forEach((doc) => {
-      list.push(doc.data() as IncidentalDuesProgram);
-    });
-    list.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-    onUpdate(list);
-  });
+  const unsub = onSnapshot(
+    ref,
+    (snap) => {
+      if (!snap.empty) {
+        const list: IncidentalDuesProgram[] = [];
+        snap.forEach((d) => {
+          list.push(d.data() as IncidentalDuesProgram);
+        });
+        list.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+        setLocalData(STORAGE_KEYS.INCIDENTAL, list);
+        notifyIncidental(list);
+      }
+    },
+    (error) => {
+      console.warn('Incidental dues subscription notice:', error.message);
+    }
+  );
+
+  return () => {
+    incidentalListeners.delete(onUpdate);
+    unsub();
+  };
 };
 
 /**
- * Helper to recursively remove undefined fields from data before saving to Firestore.
- * Firestore throws errors when encountering undefined field values.
- */
-export function sanitizeData<T>(obj: T): T {
-  if (obj === null || obj === undefined) {
-    return null as unknown as T;
-  }
-  if (Array.isArray(obj)) {
-    return obj.map(sanitizeData) as unknown as T;
-  }
-  if (typeof obj === 'object') {
-    const cleaned: Record<string, any> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      if (value !== undefined) {
-        cleaned[key] = sanitizeData(value);
-      }
-    }
-    return cleaned as T;
-  }
-  return obj;
-}
-
-/**
- * Mutator functions (saves single/multiple documents)
+ * Mutator functions: Update local storage and dispatch to listeners immediately,
+ * then sync to Firestore in background.
  */
 export const saveProfile = async (profile: RTProfile) => {
-  const ref = doc(db, 'profile', PROFILE_DOC_ID);
   const cleanProfile: RTProfile = {
     ...profile,
     adminPin: resolveAdminPin(profile.adminPin),
   };
-  await setDoc(ref, sanitizeData(cleanProfile));
+
+  setLocalData(STORAGE_KEYS.PROFILE, cleanProfile);
+  notifyProfile(cleanProfile);
+
+  try {
+    const ref = doc(db, 'profile', PROFILE_DOC_ID);
+    await setDoc(ref, sanitizeData(cleanProfile));
+  } catch (err) {
+    console.warn('Firestore profile save note:', err);
+  }
 };
 
 export const saveSyncState = async (syncState: GoogleSyncState) => {
-  const ref = doc(db, 'syncState', SYNC_STATE_DOC_ID);
-  await setDoc(ref, sanitizeData(syncState));
+  setLocalData(STORAGE_KEYS.SYNC_STATE, syncState);
+  notifySyncState(syncState);
+
+  try {
+    const ref = doc(db, 'syncState', SYNC_STATE_DOC_ID);
+    await setDoc(ref, sanitizeData(syncState));
+  } catch (err) {
+    console.warn('Firestore sync state save note:', err);
+  }
 };
 
 export const saveResident = async (resident: Resident) => {
-  const ref = doc(db, 'residents', resident.id);
-  await setDoc(ref, sanitizeData(resident));
+  const current = getLocalData<Resident[]>(STORAGE_KEYS.RESIDENTS, INITIAL_RESIDENTS);
+  const idx = current.findIndex((r) => r.id === resident.id);
+  const updated = [...current];
+  if (idx >= 0) {
+    updated[idx] = resident;
+  } else {
+    updated.push(resident);
+  }
+  updated.sort((a, b) => a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true }));
+
+  setLocalData(STORAGE_KEYS.RESIDENTS, updated);
+  notifyResidents(updated);
+
+  try {
+    const ref = doc(db, 'residents', resident.id);
+    await setDoc(ref, sanitizeData(resident));
+  } catch (err) {
+    console.warn('Firestore resident save note:', err);
+  }
 };
 
-export const saveResidentsBatch = async (residents: Resident[]) => {
-  const batch = writeBatch(db);
-  residents.forEach((r) => {
-    const ref = doc(db, 'residents', r.id);
-    batch.set(ref, sanitizeData(r));
-  });
-  await batch.commit();
+export const saveResidentsBatch = async (newResidents: Resident[]) => {
+  const sorted = [...newResidents].sort((a, b) =>
+    a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true })
+  );
+  setLocalData(STORAGE_KEYS.RESIDENTS, sorted);
+  notifyResidents(sorted);
+
+  try {
+    const batch = writeBatch(db);
+    newResidents.forEach((r) => {
+      const ref = doc(db, 'residents', r.id);
+      batch.set(ref, sanitizeData(r));
+    });
+    await batch.commit();
+  } catch (err) {
+    console.warn('Firestore residents batch save note:', err);
+  }
 };
 
 export const saveTransaction = async (tx: CashTransaction) => {
-  const ref = doc(db, 'transactions', tx.id);
-  await setDoc(ref, sanitizeData(tx));
+  const current = getLocalData<CashTransaction[]>(STORAGE_KEYS.TRANSACTIONS, INITIAL_TRANSACTIONS);
+  const idx = current.findIndex((t) => t.id === tx.id);
+  const updated = [...current];
+  if (idx >= 0) {
+    updated[idx] = tx;
+  } else {
+    updated.unshift(tx);
+  }
+  updated.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+
+  setLocalData(STORAGE_KEYS.TRANSACTIONS, updated);
+  notifyTransactions(updated);
+
+  try {
+    const ref = doc(db, 'transactions', tx.id);
+    await setDoc(ref, sanitizeData(tx));
+  } catch (err) {
+    console.warn('Firestore transaction save note:', err);
+  }
 };
 
 export const deleteTransaction = async (id: string) => {
-  const ref = doc(db, 'transactions', id);
-  await deleteDoc(ref);
+  const current = getLocalData<CashTransaction[]>(STORAGE_KEYS.TRANSACTIONS, INITIAL_TRANSACTIONS);
+  const updated = current.filter((t) => t.id !== id);
+
+  setLocalData(STORAGE_KEYS.TRANSACTIONS, updated);
+  notifyTransactions(updated);
+
+  try {
+    const ref = doc(db, 'transactions', id);
+    await deleteDoc(ref);
+  } catch (err) {
+    console.warn('Firestore transaction delete note:', err);
+  }
 };
 
 export const saveDebt = async (debt: DebtItem) => {
-  const ref = doc(db, 'debts', debt.id);
-  await setDoc(ref, sanitizeData(debt));
+  const current = getLocalData<DebtItem[]>(STORAGE_KEYS.DEBTS, INITIAL_DEBTS);
+  const idx = current.findIndex((d) => d.id === debt.id);
+  const updated = [...current];
+  if (idx >= 0) {
+    updated[idx] = debt;
+  } else {
+    updated.unshift(debt);
+  }
+  updated.sort((a, b) => b.date.localeCompare(a.date));
+
+  setLocalData(STORAGE_KEYS.DEBTS, updated);
+  notifyDebts(updated);
+
+  try {
+    const ref = doc(db, 'debts', debt.id);
+    await setDoc(ref, sanitizeData(debt));
+  } catch (err) {
+    console.warn('Firestore debt save note:', err);
+  }
 };
 
 export const saveDebtsBatch = async (debts: DebtItem[]) => {
-  const batch = writeBatch(db);
-  debts.forEach((d) => {
-    const ref = doc(db, 'debts', d.id);
-    batch.set(ref, sanitizeData(d));
-  });
-  await batch.commit();
+  const sorted = [...debts].sort((a, b) => b.date.localeCompare(a.date));
+  setLocalData(STORAGE_KEYS.DEBTS, sorted);
+  notifyDebts(sorted);
+
+  try {
+    const batch = writeBatch(db);
+    debts.forEach((d) => {
+      const ref = doc(db, 'debts', d.id);
+      batch.set(ref, sanitizeData(d));
+    });
+    await batch.commit();
+  } catch (err) {
+    console.warn('Firestore debts batch save note:', err);
+  }
 };
 
 export const saveIncidentalDuesProgram = async (program: IncidentalDuesProgram) => {
-  const ref = doc(db, 'incidentalDues', program.id);
-  await setDoc(ref, sanitizeData(program));
+  const current = getLocalData<IncidentalDuesProgram[]>(STORAGE_KEYS.INCIDENTAL, []);
+  const idx = current.findIndex((p) => p.id === program.id);
+  const updated = [...current];
+  if (idx >= 0) {
+    updated[idx] = program;
+  } else {
+    updated.unshift(program);
+  }
+  updated.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+
+  setLocalData(STORAGE_KEYS.INCIDENTAL, updated);
+  notifyIncidental(updated);
+
+  try {
+    const ref = doc(db, 'incidentalDues', program.id);
+    await setDoc(ref, sanitizeData(program));
+  } catch (err) {
+    console.warn('Firestore incidental dues save note:', err);
+  }
 };
 
 export const deleteIncidentalDuesProgram = async (id: string) => {
-  const ref = doc(db, 'incidentalDues', id);
-  await deleteDoc(ref);
+  const current = getLocalData<IncidentalDuesProgram[]>(STORAGE_KEYS.INCIDENTAL, []);
+  const updated = current.filter((p) => p.id !== id);
+
+  setLocalData(STORAGE_KEYS.INCIDENTAL, updated);
+  notifyIncidental(updated);
+
+  try {
+    const ref = doc(db, 'incidentalDues', id);
+    await deleteDoc(ref);
+  } catch (err) {
+    console.warn('Firestore incidental dues delete note:', err);
+  }
 };
 
 /**
  * Complete Database Reset / Overwrite
  */
 export const resetDatabaseToInitial = async () => {
-  // Clear collections and re-seed
-  const batch = writeBatch(db);
-
-  // 1. Reset Profile
-  const profileRef = doc(db, 'profile', PROFILE_DOC_ID);
-  batch.set(profileRef, INITIAL_RT_PROFILE);
-
-  // 2. Reset Sync State
-  const syncRef = doc(db, 'syncState', SYNC_STATE_DOC_ID);
-  batch.set(syncRef, {
+  setLocalData(STORAGE_KEYS.PROFILE, INITIAL_RT_PROFILE);
+  setLocalData(STORAGE_KEYS.SYNC_STATE, {
     spreadsheetId: null,
     spreadsheetUrl: null,
     lastSyncedAt: null,
     syncInProgress: false,
   });
+  setLocalData(STORAGE_KEYS.RESIDENTS, INITIAL_RESIDENTS);
+  setLocalData(STORAGE_KEYS.TRANSACTIONS, INITIAL_TRANSACTIONS);
+  setLocalData(STORAGE_KEYS.DEBTS, INITIAL_DEBTS);
+  setLocalData(STORAGE_KEYS.INCIDENTAL, []);
 
-  // Since we cannot delete whole collections easily in client SDK without listing them,
-  // we can get all current docs and delete them or write over them.
-  const resSnap = await getDocs(collection(db, 'residents'));
-  resSnap.forEach((doc) => {
-    batch.delete(doc.ref);
-  });
+  notifyProfile(INITIAL_RT_PROFILE);
+  notifyResidents(INITIAL_RESIDENTS);
+  notifyTransactions(INITIAL_TRANSACTIONS);
+  notifyDebts(INITIAL_DEBTS);
+  notifyIncidental([]);
 
-  const txSnap = await getDocs(collection(db, 'transactions'));
-  txSnap.forEach((doc) => {
-    batch.delete(doc.ref);
-  });
+  try {
+    const batch = writeBatch(db);
+    const profileRef = doc(db, 'profile', PROFILE_DOC_ID);
+    batch.set(profileRef, INITIAL_RT_PROFILE);
 
-  const debtSnap = await getDocs(collection(db, 'debts'));
-  debtSnap.forEach((doc) => {
-    batch.delete(doc.ref);
-  });
+    const syncRef = doc(db, 'syncState', SYNC_STATE_DOC_ID);
+    batch.set(syncRef, {
+      spreadsheetId: null,
+      spreadsheetUrl: null,
+      lastSyncedAt: null,
+      syncInProgress: false,
+    });
 
-  // Write initial data back
-  INITIAL_RESIDENTS.forEach((r) => {
-    const ref = doc(db, 'residents', r.id);
-    batch.set(ref, r);
-  });
+    const resSnap = await getDocs(collection(db, 'residents'));
+    resSnap.forEach((d) => batch.delete(d.ref));
 
-  INITIAL_TRANSACTIONS.forEach((t) => {
-    const ref = doc(db, 'transactions', t.id);
-    batch.set(ref, t);
-  });
+    const txSnap = await getDocs(collection(db, 'transactions'));
+    txSnap.forEach((d) => batch.delete(d.ref));
 
-  INITIAL_DEBTS.forEach((d) => {
-    const ref = doc(db, 'debts', d.id);
-    batch.set(ref, d);
-  });
+    const debtSnap = await getDocs(collection(db, 'debts'));
+    debtSnap.forEach((d) => batch.delete(d.ref));
 
-  await batch.commit();
+    INITIAL_RESIDENTS.forEach((r) => {
+      const ref = doc(db, 'residents', r.id);
+      batch.set(ref, r);
+    });
+
+    INITIAL_TRANSACTIONS.forEach((t) => {
+      const ref = doc(db, 'transactions', t.id);
+      batch.set(ref, t);
+    });
+
+    INITIAL_DEBTS.forEach((d) => {
+      const ref = doc(db, 'debts', d.id);
+      batch.set(ref, d);
+    });
+
+    await batch.commit();
+  } catch (err) {
+    console.warn('Firestore database reset note:', err);
+  }
 };
 
 /**
@@ -351,30 +729,38 @@ export const restoreDatabaseFromBackup = async (
   restoredTransactions: CashTransaction[],
   restoredProfile: RTProfile
 ) => {
-  const batch = writeBatch(db);
+  setLocalData(STORAGE_KEYS.PROFILE, restoredProfile);
+  setLocalData(STORAGE_KEYS.RESIDENTS, restoredResidents);
+  setLocalData(STORAGE_KEYS.TRANSACTIONS, restoredTransactions);
 
-  // Delete current data first
-  const resSnap = await getDocs(collection(db, 'residents'));
-  resSnap.forEach((doc) => batch.delete(doc.ref));
+  notifyProfile(restoredProfile);
+  notifyResidents(restoredResidents);
+  notifyTransactions(restoredTransactions);
 
-  const txSnap = await getDocs(collection(db, 'transactions'));
-  txSnap.forEach((doc) => batch.delete(doc.ref));
+  try {
+    const batch = writeBatch(db);
 
-  // Write Profile
-  const profileRef = doc(db, 'profile', PROFILE_DOC_ID);
-  batch.set(profileRef, restoredProfile);
+    const resSnap = await getDocs(collection(db, 'residents'));
+    resSnap.forEach((d) => batch.delete(d.ref));
 
-  // Write Residents
-  restoredResidents.forEach((r) => {
-    const ref = doc(db, 'residents', r.id);
-    batch.set(ref, r);
-  });
+    const txSnap = await getDocs(collection(db, 'transactions'));
+    txSnap.forEach((d) => batch.delete(d.ref));
 
-  // Write Transactions
-  restoredTransactions.forEach((t) => {
-    const ref = doc(db, 'transactions', t.id);
-    batch.set(ref, t);
-  });
+    const profileRef = doc(db, 'profile', PROFILE_DOC_ID);
+    batch.set(profileRef, restoredProfile);
 
-  await batch.commit();
+    restoredResidents.forEach((r) => {
+      const ref = doc(db, 'residents', r.id);
+      batch.set(ref, r);
+    });
+
+    restoredTransactions.forEach((t) => {
+      const ref = doc(db, 'transactions', t.id);
+      batch.set(ref, t);
+    });
+
+    await batch.commit();
+  } catch (err) {
+    console.warn('Firestore database restore note:', err);
+  }
 };

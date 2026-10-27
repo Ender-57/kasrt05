@@ -170,41 +170,8 @@ export const seedInitialDataIfEmpty = async () => {
     const profileSnap = await getDoc(profileRef);
 
     if (!profileSnap.exists()) {
-      const batch = writeBatch(db);
-
-      // 1. Seed Profile
-      batch.set(profileRef, INITIAL_RT_PROFILE);
-
-      // 2. Seed Sync State
-      const syncRef = doc(db, 'syncState', SYNC_STATE_DOC_ID);
-      batch.set(syncRef, {
-        spreadsheetId: null,
-        spreadsheetUrl: null,
-        lastSyncedAt: null,
-        syncInProgress: false,
-      });
-
-      // 3. Seed Residents
-      INITIAL_RESIDENTS.forEach((r) => {
-        const ref = doc(db, 'residents', r.id);
-        batch.set(ref, r);
-      });
-
-      // 4. Seed Transactions
-      INITIAL_TRANSACTIONS.forEach((t) => {
-        const ref = doc(db, 'transactions', t.id);
-        batch.set(ref, t);
-      });
-
-      // 5. Seed Debts (if any)
-      INITIAL_DEBTS.forEach((d) => {
-        const ref = doc(db, 'debts', d.id);
-        batch.set(ref, d);
-      });
-
-      await batch.commit();
+      await setDoc(profileRef, sanitizeData(INITIAL_RT_PROFILE));
     } else {
-      // Profile exists: merge and preserve user's customized PINs, officers, and settings
       const currentProfileData = profileSnap.data() as Partial<RTProfile>;
       const currentPin = currentProfileData?.adminPin
         ? resolveAdminPin(currentProfileData.adminPin)
@@ -230,10 +197,39 @@ export const seedInitialDataIfEmpty = async () => {
 
       await setDoc(profileRef, sanitizeData(mergedProfile), { merge: true });
     }
+
+    // Check & seed Residents if collection in Firestore is empty
+    const resSnap = await getDocs(collection(db, 'residents'));
+    if (resSnap.empty) {
+      const batch = writeBatch(db);
+      INITIAL_RESIDENTS.forEach((r) => {
+        batch.set(doc(db, 'residents', r.id), sanitizeData(r));
+      });
+      await batch.commit();
+    }
+
+    // Check & seed Transactions if collection in Firestore is empty
+    const txSnap = await getDocs(collection(db, 'transactions'));
+    if (txSnap.empty) {
+      const batch = writeBatch(db);
+      INITIAL_TRANSACTIONS.forEach((t) => {
+        batch.set(doc(db, 'transactions', t.id), sanitizeData(t));
+      });
+      await batch.commit();
+    }
+
+    // Check & seed Debts if collection in Firestore is empty
+    const debtSnap = await getDocs(collection(db, 'debts'));
+    if (debtSnap.empty && INITIAL_DEBTS.length > 0) {
+      const batch = writeBatch(db);
+      INITIAL_DEBTS.forEach((d) => {
+        batch.set(doc(db, 'debts', d.id), sanitizeData(d));
+      });
+      await batch.commit();
+    }
   } catch (err: unknown) {
-    // Graceful offline fallback: log warning instead of throwing fatal console error
     console.warn(
-      'Database seed note: operating with persistent local cache. Reason:',
+      'Database seed note:',
       err instanceof Error ? err.message : String(err)
     );
   }
@@ -315,8 +311,9 @@ export const subscribeToSyncState = (onUpdate: (syncState: GoogleSyncState) => v
 
 export const subscribeToResidents = (onUpdate: (residents: Resident[]) => void) => {
   const cached = getLocalData<Resident[]>(STORAGE_KEYS.RESIDENTS, INITIAL_RESIDENTS);
-  cached.sort((a, b) => a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true }));
-  onUpdate(cached);
+  const initialList = cached.length > 0 ? cached : INITIAL_RESIDENTS;
+  initialList.sort((a, b) => a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true }));
+  onUpdate(initialList);
 
   residentsListeners.add(onUpdate);
 
@@ -324,13 +321,21 @@ export const subscribeToResidents = (onUpdate: (residents: Resident[]) => void) 
   const unsub = onSnapshot(
     ref,
     (snap) => {
-      const list: Resident[] = [];
-      snap.forEach((d) => {
-        list.push(d.data() as Resident);
-      });
-      list.sort((a, b) => a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true }));
-      setLocalData(STORAGE_KEYS.RESIDENTS, list);
-      notifyResidents(list);
+      if (!snap.empty) {
+        const list: Resident[] = [];
+        snap.forEach((d) => {
+          list.push(d.data() as Resident);
+        });
+        list.sort((a, b) => a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true }));
+        setLocalData(STORAGE_KEYS.RESIDENTS, list);
+        notifyResidents(list);
+      } else {
+        const fallback = getLocalData<Resident[]>(STORAGE_KEYS.RESIDENTS, INITIAL_RESIDENTS);
+        const activeList = fallback.length > 0 ? fallback : INITIAL_RESIDENTS;
+        setLocalData(STORAGE_KEYS.RESIDENTS, activeList);
+        notifyResidents(activeList);
+        saveResidentsBatch(activeList).catch(() => {});
+      }
     },
     (error) => {
       console.warn('Residents subscription notice:', error.message);
@@ -345,8 +350,9 @@ export const subscribeToResidents = (onUpdate: (residents: Resident[]) => void) 
 
 export const subscribeToTransactions = (onUpdate: (transactions: CashTransaction[]) => void) => {
   const cached = getLocalData<CashTransaction[]>(STORAGE_KEYS.TRANSACTIONS, INITIAL_TRANSACTIONS);
-  cached.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-  onUpdate(cached);
+  const initialList = cached.length > 0 ? cached : INITIAL_TRANSACTIONS;
+  initialList.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  onUpdate(initialList);
 
   transactionsListeners.add(onUpdate);
 
@@ -354,13 +360,23 @@ export const subscribeToTransactions = (onUpdate: (transactions: CashTransaction
   const unsub = onSnapshot(
     ref,
     (snap) => {
-      const list: CashTransaction[] = [];
-      snap.forEach((d) => {
-        list.push(d.data() as CashTransaction);
-      });
-      list.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-      setLocalData(STORAGE_KEYS.TRANSACTIONS, list);
-      notifyTransactions(list);
+      if (!snap.empty) {
+        const list: CashTransaction[] = [];
+        snap.forEach((d) => {
+          list.push(d.data() as CashTransaction);
+        });
+        list.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+        setLocalData(STORAGE_KEYS.TRANSACTIONS, list);
+        notifyTransactions(list);
+      } else {
+        const fallback = getLocalData<CashTransaction[]>(STORAGE_KEYS.TRANSACTIONS, INITIAL_TRANSACTIONS);
+        const activeList = fallback.length > 0 ? fallback : INITIAL_TRANSACTIONS;
+        setLocalData(STORAGE_KEYS.TRANSACTIONS, activeList);
+        notifyTransactions(activeList);
+        const batch = writeBatch(db);
+        activeList.forEach((t) => batch.set(doc(db, 'transactions', t.id), sanitizeData(t)));
+        batch.commit().catch(() => {});
+      }
     },
     (error) => {
       console.warn('Transactions subscription notice:', error.message);
@@ -375,8 +391,9 @@ export const subscribeToTransactions = (onUpdate: (transactions: CashTransaction
 
 export const subscribeToDebts = (onUpdate: (debts: DebtItem[]) => void) => {
   const cached = getLocalData<DebtItem[]>(STORAGE_KEYS.DEBTS, INITIAL_DEBTS);
-  cached.sort((a, b) => b.date.localeCompare(a.date));
-  onUpdate(cached);
+  const initialList = cached.length > 0 ? cached : INITIAL_DEBTS;
+  initialList.sort((a, b) => b.date.localeCompare(a.date));
+  onUpdate(initialList);
 
   debtsListeners.add(onUpdate);
 
@@ -384,13 +401,21 @@ export const subscribeToDebts = (onUpdate: (debts: DebtItem[]) => void) => {
   const unsub = onSnapshot(
     ref,
     (snap) => {
-      const list: DebtItem[] = [];
-      snap.forEach((d) => {
-        list.push(d.data() as DebtItem);
-      });
-      list.sort((a, b) => b.date.localeCompare(a.date));
-      setLocalData(STORAGE_KEYS.DEBTS, list);
-      notifyDebts(list);
+      if (!snap.empty) {
+        const list: DebtItem[] = [];
+        snap.forEach((d) => {
+          list.push(d.data() as DebtItem);
+        });
+        list.sort((a, b) => b.date.localeCompare(a.date));
+        setLocalData(STORAGE_KEYS.DEBTS, list);
+        notifyDebts(list);
+      } else {
+        const fallback = getLocalData<DebtItem[]>(STORAGE_KEYS.DEBTS, INITIAL_DEBTS);
+        const activeList = fallback.length > 0 ? fallback : INITIAL_DEBTS;
+        setLocalData(STORAGE_KEYS.DEBTS, activeList);
+        notifyDebts(activeList);
+        saveDebtsBatch(activeList).catch(() => {});
+      }
     },
     (error) => {
       console.warn('Debts subscription notice:', error.message);

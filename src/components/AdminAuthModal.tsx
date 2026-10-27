@@ -94,7 +94,7 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
       trimmedInput === effectivePin ||
       trimmedInput === storedPin ||
       hashedInput === storedPin ||
-      trimmedInput === '123456';
+      (!effectivePin && trimmedInput === '123456');
 
     const effectiveSecPin = profile.secretaryPin ? resolveAdminPin(profile.secretaryPin) : '654321';
     const storedSecPin = profile.secretaryPin || '654321';
@@ -104,7 +104,7 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
       trimmedInput === effectiveSecPin ||
       trimmedInput === storedSecPin ||
       hashedSecInput === storedSecPin ||
-      trimmedInput === '654321';
+      (!effectiveSecPin && trimmedInput === '654321');
 
     if (isValidAdmin || isValidSecretary) {
       anonymousSignIn().catch(() => {});

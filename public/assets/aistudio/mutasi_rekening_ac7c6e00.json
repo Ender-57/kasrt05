@@ -1,0 +1,607 @@
+{
+    "transaksi": [
+        {
+            "no": 1,
+            "tanggal": "08 Sep 2026",
+            "waktu": "07:45:49 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208",
+            "dana_masuk": 1453400.0,
+            "dana_keluar": 0.0,
+            "saldo": 1453400.0
+        },
+        {
+            "no": 2,
+            "tanggal": "08 Sep 2026",
+            "waktu": "16:03:03 WIB",
+            "keterangan": "Biaya transfer BI Fast",
+            "dana_masuk": 0.0,
+            "dana_keluar": 2500.0,
+            "saldo": 1450900.0
+        },
+        {
+            "no": 3,
+            "tanggal": "08 Sep 2026",
+            "waktu": "16:03:03 WIB",
+            "keterangan": "Transfer BI Fast Ke BANK BNI KIKI FIRMANSYAH 809761820 Kasbon Rosam",
+            "dana_masuk": 0.0,
+            "dana_keluar": 300000.0,
+            "saldo": 1150900.0
+        },
+        {
+            "no": 4,
+            "tanggal": "08 Sep 2026",
+            "waktu": "20:24:08 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 376 Supartono",
+            "dana_masuk": 70000.0,
+            "dana_keluar": 0.0,
+            "saldo": 1220900.0
+        },
+        {
+            "no": 5,
+            "tanggal": "08 Sep 2026",
+            "waktu": "20:25:15 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 350 Wibisono",
+            "dana_masuk": 70000.0,
+            "dana_keluar": 0.0,
+            "saldo": 1290900.0
+        },
+        {
+            "no": 6,
+            "tanggal": "08 Sep 2026",
+            "waktu": "20:25:57 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 82 Udiono",
+            "dana_masuk": 210000.0,
+            "dana_keluar": 0.0,
+            "saldo": 1500900.0
+        },
+        {
+            "no": 7,
+            "tanggal": "11 Sep 2026",
+            "waktu": "20:22:14 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 339 Hendra Cahyono",
+            "dana_masuk": 70000.0,
+            "dana_keluar": 0.0,
+            "saldo": 1570900.0
+        },
+        {
+            "no": 8,
+            "tanggal": "17 Sep 2026",
+            "waktu": "16:56:17 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI VIVI HANDAYANI 1560001307356 byr iuran rt",
+            "dana_masuk": 140000.0,
+            "dana_keluar": 0.0,
+            "saldo": 1710900.0
+        },
+        {
+            "no": 9,
+            "tanggal": "17 Sep 2026",
+            "waktu": "17:39:06 WIB",
+            "keterangan": "Transfer BI Fast Dari BCA WAGIMAN 0660669043 Iuran sept 26 iC335",
+            "dana_masuk": 70000.0,
+            "dana_keluar": 0.0,
+            "saldo": 1780900.0
+        },
+        {
+            "no": 10,
+            "tanggal": "17 Sep 2026",
+            "waktu": "17:58:16 WIB",
+            "keterangan": "Transfer BI Fast Dari BCA DWI RAHMAWATI 8420029021 Iuran sept Bpk Rihad, IC 356",
+            "dana_masuk": 70000.0,
+            "dana_keluar": 0.0,
+            "saldo": 1850900.0
+        },
+        {
+            "no": 11,
+            "tanggal": "17 Sep 2026",
+            "waktu": "19:54:12 WIB",
+            "keterangan": "Transfer BI Fast Dari SAQU INDONESIA NURLAILA HASANAH 10044802673 Supartono IC 376",
+            "dana_masuk": 70000.0,
+            "dana_keluar": 0.0,
+            "saldo": 1920900.0
+        },
+        {
+            "no": 12,
+            "tanggal": "17 Sep 2026",
+            "waktu": "20:34:28 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 Iuran RW",
+            "dana_masuk": 980000.0,
+            "dana_keluar": 0.0,
+            "saldo": 2900900.0
+        },
+        {
+            "no": 13,
+            "tanggal": "17 Sep 2026",
+            "waktu": "21:36:09 WIB",
+            "keterangan": "Transfer ke BANK MANDIRI HENDRA CAHYONO 1030007373208 Cancel",
+            "dana_masuk": 0.0,
+            "dana_keluar": 980000.0,
+            "saldo": 1920900.0
+        },
+        {
+            "no": 14,
+            "tanggal": "17 Sep 2026",
+            "waktu": "21:36:52 WIB",
+            "keterangan": "Transfer ke BANK MANDIRI HENDRA CAHYONO 1030007373208 IURAN RW",
+            "dana_masuk": 0.0,
+            "dana_keluar": 980000.0,
+            "saldo": 940900.0
+        },
+        {
+            "no": 15,
+            "tanggal": "19 Sep 2026",
+            "waktu": "09:39:51 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 Iuran 81 Ryan Amirul Hakim",
+            "dana_masuk": 300000.0,
+            "dana_keluar": 0.0,
+            "saldo": 1240900.0
+        },
+        {
+            "no": 16,
+            "tanggal": "20 Sep 2026",
+            "waktu": "14:39:56 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI MINGGU MEGAWATI LUMB 1670005670830",
+            "dana_masuk": 280000.0,
+            "dana_keluar": 0.0,
+            "saldo": 1520900.0
+        },
+        {
+            "no": 17,
+            "tanggal": "21 Sep 2026",
+            "waktu": "06:11:37 WIB",
+            "keterangan": "Transfer BI Fast Dari BCA WAGIMAN 0660669043 Dana dr calon KD u bersihin got",
+            "dana_masuk": 250000.0,
+            "dana_keluar": 0.0,
+            "saldo": 1770900.0
+        },
+        {
+            "no": 18,
+            "tanggal": "24 Sep 2026",
+            "waktu": "06:09:36 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 Sumbangan Kades IC339",
+            "dana_masuk": 100000.0,
+            "dana_keluar": 0.0,
+            "saldo": 1870900.0
+        },
+        {
+            "no": 19,
+            "tanggal": "24 Sep 2026",
+            "waktu": "18:04:33 WIB",
+            "keterangan": "Biaya transfer BI Fast",
+            "dana_masuk": 0.0,
+            "dana_keluar": 2500.0,
+            "saldo": 1868400.0
+        },
+        {
+            "no": 20,
+            "tanggal": "24 Sep 2026",
+            "waktu": "18:04:33 WIB",
+            "keterangan": "Transfer BI Fast Ke BANK BNI KIKI FIRMANSYAH 809761820 Kasbon Rosam",
+            "dana_masuk": 0.0,
+            "dana_keluar": 100000.0,
+            "saldo": 1768400.0
+        },
+        {
+            "no": 21,
+            "tanggal": "25 Sep 2026",
+            "waktu": "21:17:52 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 Sumbangan Pilkades Rihad W",
+            "dana_masuk": 150000.0,
+            "dana_keluar": 0.0,
+            "saldo": 1918400.0
+        },
+        {
+            "no": 22,
+            "tanggal": "26 Sep 2026",
+            "waktu": "09:04:40 WIB",
+            "keterangan": "Transfer BI Fast Dari BCA FIA FAJARIATI 8421513546 IPL suwono dan TK avisena sept 2",
+            "dana_masuk": 140000.0,
+            "dana_keluar": 0.0,
+            "saldo": 2058400.0
+        },
+        {
+            "no": 23,
+            "tanggal": "27 Sep 2026",
+            "waktu": "08:55:34 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 Iuran 82 372 376",
+            "dana_masuk": 210000.0,
+            "dana_keluar": 0.0,
+            "saldo": 2268400.0
+        },
+        {
+            "no": 24,
+            "tanggal": "28 Sep 2026",
+            "waktu": "11:33:06 WIB",
+            "keterangan": "Transfer BI Fast Dari BCA WASIMIN 5230269744 -",
+            "dana_masuk": 120000.0,
+            "dana_keluar": 0.0,
+            "saldo": 2388400.0
+        },
+        {
+            "no": 25,
+            "tanggal": "28 Sep 2026",
+            "waktu": "12:17:06 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI VIVI HANDAYANI 1560001307356 byr pengerukan pak pipin 50 rb",
+            "dana_masuk": 50000.0,
+            "dana_keluar": 0.0,
+            "saldo": 2438400.0
+        },
+        {
+            "no": 26,
+            "tanggal": "28 Sep 2026",
+            "waktu": "12:32:07 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 Iuran Rama Alpian IC 371",
+            "dana_masuk": 140000.0,
+            "dana_keluar": 0.0,
+            "saldo": 2578400.0
+        },
+        {
+            "no": 27,
+            "tanggal": "28 Sep 2026",
+            "waktu": "13:32:05 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI RIAN AMIRUL HAQIM 1670004027909",
+            "dana_masuk": 50000.0,
+            "dana_keluar": 0.0,
+            "saldo": 2628400.0
+        },
+        {
+            "no": 28,
+            "tanggal": "28 Sep 2026",
+            "waktu": "13:45:43 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 Iuran selokan IC 339",
+            "dana_masuk": 50000.0,
+            "dana_keluar": 0.0,
+            "saldo": 2678400.0
+        },
+        {
+            "no": 29,
+            "tanggal": "28 Sep 2026",
+            "waktu": "16:31:59 WIB",
+            "keterangan": "Transfer BI Fast Dari BCA SRI WARTINI 8420704306 -",
+            "dana_masuk": 120000.0,
+            "dana_keluar": 0.0,
+            "saldo": 2798400.0
+        },
+        {
+            "no": 30,
+            "tanggal": "28 Sep 2026",
+            "waktu": "16:40:57 WIB",
+            "keterangan": "Transfer BI Fast Dari BCA DWI RAHMAWATI 8420029021 Byr ngeruk got Bpk Rihad, IC 356",
+            "dana_masuk": 50000.0,
+            "dana_keluar": 0.0,
+            "saldo": 2848400.0
+        },
+        {
+            "no": 31,
+            "tanggal": "28 Sep 2026",
+            "waktu": "18:15:34 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI SURYANTO ARI WIBOWO 1200013053850 pengerukan got ari ic 372",
+            "dana_masuk": 50000.0,
+            "dana_keluar": 0.0,
+            "saldo": 2898400.0
+        },
+        {
+            "no": 32,
+            "tanggal": "28 Sep 2026",
+            "waktu": "19:37:32 WIB",
+            "keterangan": "Transfer BI Fast Dari SAQU INDONESIA NURLAILA HASANAH 10044802673 Supartono IC 376",
+            "dana_masuk": 50000.0,
+            "dana_keluar": 0.0,
+            "saldo": 2948400.0
+        },
+        {
+            "no": 33,
+            "tanggal": "28 Sep 2026",
+            "waktu": "21:59:02 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI RATMI RATIKA 1560013449519",
+            "dana_masuk": 330000.0,
+            "dana_keluar": 0.0,
+            "saldo": 3278400.0
+        },
+        {
+            "no": 34,
+            "tanggal": "29 Sep 2026",
+            "waktu": "06:27:29 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 Iuran got 371 rama alpian",
+            "dana_masuk": 50000.0,
+            "dana_keluar": 0.0,
+            "saldo": 3328400.0
+        },
+        {
+            "no": 35,
+            "tanggal": "29 Sep 2026",
+            "waktu": "07:04:13 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 iuran got 350 Wibisono",
+            "dana_masuk": 50000.0,
+            "dana_keluar": 0.0,
+            "saldo": 3378400.0
+        },
+        {
+            "no": 36,
+            "tanggal": "30 Sep 2026",
+            "waktu": "18:38:58 WIB",
+            "keterangan": "Transfer BI Fast Dari BCA FIA FAJARIATI 8421513546 Iuran keruk got",
+            "dana_masuk": 50000.0,
+            "dana_keluar": 0.0,
+            "saldo": 3428400.0
+        },
+        {
+            "no": 37,
+            "tanggal": "30 Sep 2026",
+            "waktu": "18:44:24 WIB",
+            "keterangan": "Transfer BI Fast Dari BCA MISWAN 4840209178 -",
+            "dana_masuk": 120000.0,
+            "dana_keluar": 0.0,
+            "saldo": 3548400.0
+        },
+        {
+            "no": 38,
+            "tanggal": "30 Sep 2026",
+            "waktu": "19:16:52 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 iuran Sep Aom 375",
+            "dana_masuk": 70000.0,
+            "dana_keluar": 0.0,
+            "saldo": 3618400.0
+        },
+        {
+            "no": 39,
+            "tanggal": "30 Sep 2026",
+            "waktu": "20:56:34 WIB",
+            "keterangan": "Transfer BI Fast Dari BANK BNI SHANDRA NURHALIM 1438395856 Pembayaran Iuran sampah September sampai",
+            "dana_masuk": 280000.0,
+            "dana_keluar": 0.0,
+            "saldo": 3898400.0
+        },
+        {
+            "no": 40,
+            "tanggal": "30 Sep 2026",
+            "waktu": "22:26:38 WIB",
+            "keterangan": "Transfer BI Fast Dari BANK BNI SHANDRA NURHALIM 1438395856 Iuran pengurukan saluran air",
+            "dana_masuk": 50000.0,
+            "dana_keluar": 0.0,
+            "saldo": 3948400.0
+        },
+        {
+            "no": 41,
+            "tanggal": "30 Sep 2026",
+            "waktu": "23:59:00 WIB",
+            "keterangan": "Biaya administrasi rekening",
+            "dana_masuk": 0.0,
+            "dana_keluar": 6000.0,
+            "saldo": 3942400.0
+        },
+        {
+            "no": 1,
+            "tanggal": "01 Oct 2026",
+            "waktu": "06:30:31 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 IC 339",
+            "dana_masuk": 70000.0,
+            "dana_keluar": 0.0,
+            "saldo": 4012400.0
+        },
+        {
+            "no": 2,
+            "tanggal": "02 Oct 2026",
+            "waktu": "16:47:50 WIB",
+            "keterangan": "Biaya transfer BI Fast",
+            "dana_masuk": 0.0,
+            "dana_keluar": 2500.0,
+            "saldo": 4009900.0
+        },
+        {
+            "no": 3,
+            "tanggal": "02 Oct 2026",
+            "waktu": "16:47:50 WIB",
+            "keterangan": "Transfer BI Fast Ke BANK BNI KIKI FIRMANSYAH 809761820 Kasbon Rosam Keruk Got",
+            "dana_masuk": 0.0,
+            "dana_keluar": 300000.0,
+            "saldo": 3709900.0
+        },
+        {
+            "no": 4,
+            "tanggal": "03 Oct 2026",
+            "waktu": "11:51:05 WIB",
+            "keterangan": "Transfer BI Fast Dari BPD JABAR DAN BANTEN WAGIMAN 0164349225100 iuran dll",
+            "dana_masuk": 300000.0,
+            "dana_keluar": 0.0,
+            "saldo": 4009900.0
+        },
+        {
+            "no": 5,
+            "tanggal": "04 Oct 2026",
+            "waktu": "14:34:52 WIB",
+            "keterangan": "Transfer ke BANK MANDIRI NORIKA MALASARI 1360031479220 Gaji Rosam Oktober",
+            "dana_masuk": 0.0,
+            "dana_keluar": 295000.0,
+            "saldo": 3714900.0
+        },
+        {
+            "no": 6,
+            "tanggal": "04 Oct 2026",
+            "waktu": "14:37:00 WIB",
+            "keterangan": "Transfer ke BANK MANDIRI HENDRA CAHYONO 1030007373208 Kasbon Rosam Keruk Got",
+            "dana_masuk": 0.0,
+            "dana_keluar": 50000.0,
+            "saldo": 3664900.0
+        },
+        {
+            "no": 7,
+            "tanggal": "04 Oct 2026",
+            "waktu": "17:38:55 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 Iuran Got 373 Suyatmi",
+            "dana_masuk": 50000.0,
+            "dana_keluar": 0.0,
+            "saldo": 3714900.0
+        },
+        {
+            "no": 8,
+            "tanggal": "04 Oct 2026",
+            "waktu": "17:40:00 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 82 Udiyono Iuran Oktober dan got",
+            "dana_masuk": 120000.0,
+            "dana_keluar": 0.0,
+            "saldo": 3834900.0
+        },
+        {
+            "no": 9,
+            "tanggal": "04 Oct 2026",
+            "waktu": "17:42:39 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 359 Krisna sd Sep dan got",
+            "dana_masuk": 200000.0,
+            "dana_keluar": 0.0,
+            "saldo": 4034900.0
+        },
+        {
+            "no": 10,
+            "tanggal": "04 Oct 2026",
+            "waktu": "17:51:51 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 360 Wibisono Okt",
+            "dana_masuk": 70000.0,
+            "dana_keluar": 0.0,
+            "saldo": 4104900.0
+        },
+        {
+            "no": 11,
+            "tanggal": "04 Oct 2026",
+            "waktu": "20:32:32 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 83 Imam iuran jan okt 2026",
+            "dana_masuk": 450000.0,
+            "dana_keluar": 0.0,
+            "saldo": 4554900.0
+        },
+        {
+            "no": 12,
+            "tanggal": "05 Oct 2026",
+            "waktu": "12:10:20 WIB",
+            "keterangan": "Transfer BI Fast Dari BCA DWI RAHMAWATI 8420029021 Iuran Okt, Rihad Wiranto, IC 356",
+            "dana_masuk": 70000.0,
+            "dana_keluar": 0.0,
+            "saldo": 4624900.0
+        },
+        {
+            "no": 13,
+            "tanggal": "05 Oct 2026",
+            "waktu": "19:36:47 WIB",
+            "keterangan": "Biaya transfer BI Fast",
+            "dana_masuk": 0.0,
+            "dana_keluar": 2500.0,
+            "saldo": 4622400.0
+        },
+        {
+            "no": 14,
+            "tanggal": "05 Oct 2026",
+            "waktu": "19:36:47 WIB",
+            "keterangan": "Transfer BI Fast Ke BANK BNI KIKI FIRMANSYAH 809761820 Pembayaran Keruk Got tahap 1",
+            "dana_masuk": 0.0,
+            "dana_keluar": 1000000.0,
+            "saldo": 3622400.0
+        },
+        {
+            "no": 15,
+            "tanggal": "05 Oct 2026",
+            "waktu": "21:23:32 WIB",
+            "keterangan": "Transfer BI Fast Dari BCA RUDIANTO 7635651121 -",
+            "dana_masuk": 400000.0,
+            "dana_keluar": 0.0,
+            "saldo": 4022400.0
+        },
+        {
+            "no": 16,
+            "tanggal": "05 Oct 2026",
+            "waktu": "21:28:40 WIB",
+            "keterangan": "Transfer BI Fast Dari BCA GIAN ARTA UTAMA 8780369656 Iuran Bulanan IC no.87",
+            "dana_masuk": 450000.0,
+            "dana_keluar": 0.0,
+            "saldo": 4472400.0
+        },
+        {
+            "no": 17,
+            "tanggal": "06 Oct 2026",
+            "waktu": "20:24:21 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 IC 382 Aris sd Des dan got",
+            "dana_masuk": 330000.0,
+            "dana_keluar": 0.0,
+            "saldo": 4802400.0
+        },
+        {
+            "no": 18,
+            "tanggal": "08 Oct 2026",
+            "waktu": "05:23:47 WIB",
+            "keterangan": "Biaya transfer BI Fast",
+            "dana_masuk": 0.0,
+            "dana_keluar": 2500.0,
+            "saldo": 4799900.0
+        },
+        {
+            "no": 19,
+            "tanggal": "08 Oct 2026",
+            "waktu": "05:23:47 WIB",
+            "keterangan": "Transfer BI Fast Ke BANK BNI KIKI FIRMANSYAH 809761820 Pelunasan sisa keruk got",
+            "dana_masuk": 0.0,
+            "dana_keluar": 247500.0,
+            "saldo": 4552400.0
+        },
+        {
+            "no": 20,
+            "tanggal": "11 Oct 2026",
+            "waktu": "21:44:33 WIB",
+            "keterangan": "Transfer dari BANK MANDIRI HENDRA CAHYONO 1030007373208 Iuran Pertemuan Okt",
+            "dana_masuk": 400000.0,
+            "dana_keluar": 0.0,
+            "saldo": 4952400.0
+        },
+        {
+            "no": 21,
+            "tanggal": "13 Oct 2026",
+            "waktu": "07:18:42 WIB",
+            "keterangan": "Transfer ke BANK MANDIRI HENDRA CAHYONO 1030007373208 Iuran ke RW",
+            "dana_masuk": 0.0,
+            "dana_keluar": 980000.0,
+            "saldo": 3972400.0
+        },
+        {
+            "no": 22,
+            "tanggal": "15 Oct 2026",
+            "waktu": "06:18:28 WIB",
+            "keterangan": "Biaya transfer BI Fast",
+            "dana_masuk": 0.0,
+            "dana_keluar": 2500.0,
+            "saldo": 3969900.0
+        },
+        {
+            "no": 23,
+            "tanggal": "15 Oct 2026",
+            "waktu": "06:18:28 WIB",
+            "keterangan": "Transfer BI Fast Ke BANK BNI KIKI FIRMANSYAH 809761820 Kasbon Rosam",
+            "dana_masuk": 0.0,
+            "dana_keluar": 200000.0,
+            "saldo": 3769900.0
+        },
+        {
+            "no": 24,
+            "tanggal": "21 Oct 2026",
+            "waktu": "12:48:01 WIB",
+            "keterangan": "Biaya transfer BI Fast",
+            "dana_masuk": 0.0,
+            "dana_keluar": 2500.0,
+            "saldo": 3767400.0
+        },
+        {
+            "no": 25,
+            "tanggal": "21 Oct 2026",
+            "waktu": "12:48:01 WIB",
+            "keterangan": "Transfer BI Fast Ke BANK BNI KIKI FIRMANSYAH 809761820 Kasbon Rosam",
+            "dana_masuk": 0.0,
+            "dana_keluar": 100000.0,
+            "saldo": 3667400.0
+        },
+        {
+            "no": 26,
+            "tanggal": "21 Oct 2026",
+            "waktu": "19:57:53 WIB",
+            "keterangan": "Transfer BI Fast Dari BANK CIMB SUTARNO 701883322300",
+            "dana_masuk": 260000.0,
+            "dana_keluar": 0.0,
+            "saldo": 3927400.0
+        }
+    ]
+}

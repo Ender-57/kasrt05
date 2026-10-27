@@ -140,7 +140,7 @@ export function sanitizeData<T>(obj: T): T {
   return obj;
 }
 
-const DATA_VERSION = 'v3_susunan_pengurus_transaksi_okt2026';
+const DATA_VERSION = 'v4_mutasi_rekening_lengkap_67_transaksi';
 const DATA_VERSION_KEY = 'rt05_data_version';
 
 /**
@@ -152,7 +152,7 @@ function initLocalStorageIfEmpty() {
   const currentVersion = localStorage.getItem(DATA_VERSION_KEY);
   const isOutdated = currentVersion !== DATA_VERSION;
 
-  if (!localStorage.getItem(STORAGE_KEYS.PROFILE) || isOutdated) {
+  if (!localStorage.getItem(STORAGE_KEYS.PROFILE)) {
     setLocalData(STORAGE_KEYS.PROFILE, INITIAL_RT_PROFILE);
     notifyProfile(INITIAL_RT_PROFILE);
   }
@@ -229,19 +229,41 @@ export const seedInitialDataIfEmpty = async () => {
 
       await batch.commit();
     } else {
-      // Update officers and profile in Firestore with latest official board
-      const currentProfileData = profileSnap.data();
+      // Profile exists: merge and preserve user's customized PINs, officers, and settings
+      const currentProfileData = profileSnap.data() as Partial<RTProfile>;
       const currentPin = currentProfileData?.adminPin
         ? resolveAdminPin(currentProfileData.adminPin)
         : INITIAL_RT_PROFILE.adminPin;
+      const currentSecPin = currentProfileData?.secretaryPin
+        ? resolveAdminPin(currentProfileData.secretaryPin)
+        : (INITIAL_RT_PROFILE.secretaryPin || '654321');
 
-      await setDoc(
-        profileRef,
-        sanitizeData({
-          ...INITIAL_RT_PROFILE,
-          adminPin: currentPin,
-        })
-      );
+      const mergedProfile: RTProfile = {
+        ...INITIAL_RT_PROFILE,
+        ...currentProfileData,
+        adminPin: currentPin,
+        secretaryPin: currentSecPin,
+        officers:
+          currentProfileData?.officers && currentProfileData.officers.length > 0
+            ? currentProfileData.officers
+            : INITIAL_RT_PROFILE.officers,
+        programKerjaList:
+          currentProfileData?.programKerjaList && currentProfileData.programKerjaList.length > 0
+            ? currentProfileData.programKerjaList
+            : INITIAL_RT_PROFILE.programKerjaList,
+      };
+
+      await setDoc(profileRef, sanitizeData(mergedProfile), { merge: true });
+
+      // Ensure debts collection in Firestore is initialized if empty
+      const debtSnap = await getDocs(collection(db, 'debts'));
+      if (debtSnap.empty) {
+        const debtBatch = writeBatch(db);
+        INITIAL_DEBTS.forEach((d) => {
+          debtBatch.set(doc(db, 'debts', d.id), sanitizeData(d));
+        });
+        await debtBatch.commit();
+      }
 
       // Ensure residents collection in Firestore contains all 34 residents from the latest data
       const resSnap = await getDocs(collection(db, 'residents'));
@@ -253,10 +275,24 @@ export const seedInitialDataIfEmpty = async () => {
         await resBatch.commit();
       }
 
-      // Ensure transactions collection in Firestore contains all transactions including rows 40-55
+      // Ensure transactions collection in Firestore matches the exact 67 transactions from mutasi rekening
       const txSnap = await getDocs(collection(db, 'transactions'));
-      if (txSnap.size < INITIAL_TRANSACTIONS.length) {
+      const existingTxIds = new Set(txSnap.docs.map((d) => d.id));
+      const targetTxIds = new Set(INITIAL_TRANSACTIONS.map((t) => t.id));
+
+      const needsSync =
+        txSnap.size !== INITIAL_TRANSACTIONS.length ||
+        INITIAL_TRANSACTIONS.some((t) => !existingTxIds.has(t.id));
+
+      if (needsSync) {
         const txBatch = writeBatch(db);
+        // Delete any old transactions not in INITIAL_TRANSACTIONS
+        for (const docSnap of txSnap.docs) {
+          if (!targetTxIds.has(docSnap.id)) {
+            txBatch.delete(docSnap.ref);
+          }
+        }
+        // Write all 67 transactions
         INITIAL_TRANSACTIONS.forEach((t) => {
           txBatch.set(doc(db, 'transactions', t.id), sanitizeData(t));
         });
@@ -293,6 +329,11 @@ export const subscribeToProfile = (onUpdate: (profile: RTProfile) => void) => {
           const plainPin = resolveAdminPin(data.adminPin);
           data.adminPin = plainPin;
           updateDoc(ref, { adminPin: plainPin }).catch(() => {});
+        }
+        if (data.secretaryPin && (isSha256(data.secretaryPin) || data.secretaryPin.length > 10)) {
+          const plainSecPin = resolveAdminPin(data.secretaryPin);
+          data.secretaryPin = plainSecPin;
+          updateDoc(ref, { secretaryPin: plainSecPin }).catch(() => {});
         }
         setLocalData(STORAGE_KEYS.PROFILE, data);
         notifyProfile(data);
@@ -416,15 +457,13 @@ export const subscribeToDebts = (onUpdate: (debts: DebtItem[]) => void) => {
   const unsub = onSnapshot(
     ref,
     (snap) => {
-      if (!snap.empty) {
-        const list: DebtItem[] = [];
-        snap.forEach((d) => {
-          list.push(d.data() as DebtItem);
-        });
-        list.sort((a, b) => b.date.localeCompare(a.date));
-        setLocalData(STORAGE_KEYS.DEBTS, list);
-        notifyDebts(list);
-      }
+      const list: DebtItem[] = [];
+      snap.forEach((d) => {
+        list.push(d.data() as DebtItem);
+      });
+      list.sort((a, b) => b.date.localeCompare(a.date));
+      setLocalData(STORAGE_KEYS.DEBTS, list);
+      notifyDebts(list);
     },
     (error) => {
       console.warn('Debts subscription notice:', error.message);
@@ -477,6 +516,7 @@ export const saveProfile = async (profile: RTProfile) => {
   const cleanProfile: RTProfile = {
     ...profile,
     adminPin: resolveAdminPin(profile.adminPin),
+    secretaryPin: profile.secretaryPin ? resolveAdminPin(profile.secretaryPin) : '654321',
   };
 
   setLocalData(STORAGE_KEYS.PROFILE, cleanProfile);
@@ -524,6 +564,21 @@ export const saveResident = async (resident: Resident) => {
   }
 };
 
+export const deleteResident = async (id: string) => {
+  const current = getLocalData<Resident[]>(STORAGE_KEYS.RESIDENTS, INITIAL_RESIDENTS);
+  const updated = current.filter((r) => r.id !== id);
+
+  setLocalData(STORAGE_KEYS.RESIDENTS, updated);
+  notifyResidents(updated);
+
+  try {
+    const ref = doc(db, 'residents', id);
+    await deleteDoc(ref);
+  } catch (err) {
+    console.warn('Firestore resident delete note:', err);
+  }
+};
+
 export const saveResidentsBatch = async (newResidents: Resident[]) => {
   const sorted = [...newResidents].sort((a, b) =>
     a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true })
@@ -532,7 +587,17 @@ export const saveResidentsBatch = async (newResidents: Resident[]) => {
   notifyResidents(sorted);
 
   try {
+    const resSnap = await getDocs(collection(db, 'residents'));
+    const targetIds = new Set(newResidents.map((r) => r.id));
     const batch = writeBatch(db);
+
+    // Delete any residents from Firestore that are no longer in newResidents
+    resSnap.forEach((docSnap) => {
+      if (!targetIds.has(docSnap.id)) {
+        batch.delete(docSnap.ref);
+      }
+    });
+
     newResidents.forEach((r) => {
       const ref = doc(db, 'residents', r.id);
       batch.set(ref, sanitizeData(r));
@@ -602,17 +667,44 @@ export const saveDebt = async (debt: DebtItem) => {
   }
 };
 
+export const deleteDebt = async (id: string) => {
+  const current = getLocalData<DebtItem[]>(STORAGE_KEYS.DEBTS, INITIAL_DEBTS);
+  const updated = current.filter((d) => d.id !== id);
+
+  setLocalData(STORAGE_KEYS.DEBTS, updated);
+  notifyDebts(updated);
+
+  try {
+    const ref = doc(db, 'debts', id);
+    await deleteDoc(ref);
+  } catch (err) {
+    console.warn('Firestore debt delete note:', err);
+  }
+};
+
 export const saveDebtsBatch = async (debts: DebtItem[]) => {
   const sorted = [...debts].sort((a, b) => b.date.localeCompare(a.date));
   setLocalData(STORAGE_KEYS.DEBTS, sorted);
   notifyDebts(sorted);
 
   try {
+    const debtSnap = await getDocs(collection(db, 'debts'));
+    const targetIds = new Set(debts.map((d) => d.id));
     const batch = writeBatch(db);
+
+    // Delete any debts from Firestore that were deleted in UI
+    debtSnap.forEach((docSnap) => {
+      if (!targetIds.has(docSnap.id)) {
+        batch.delete(docSnap.ref);
+      }
+    });
+
+    // Save/update all debts
     debts.forEach((d) => {
       const ref = doc(db, 'debts', d.id);
       batch.set(ref, sanitizeData(d));
     });
+
     await batch.commit();
   } catch (err) {
     console.warn('Firestore debts batch save note:', err);

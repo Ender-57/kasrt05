@@ -31,27 +31,8 @@ import { resolveAdminPin, resolveSecretaryPin, isSha256 } from '../utils/crypto'
 
 // Initialize Firebase App safely
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-export const db = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
-
-// Test Firestore connection on boot with graceful offline resilience
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      (error.message.includes('the client is offline') ||
-        error.message.includes('offline') ||
-        error.message.includes('suspended') ||
-        error.message.includes('Permission denied'))
-    ) {
-      console.warn('Firestore notice: Application is running in resilient local-first mode.');
-    }
-  }
-}
-testConnection();
+const dbId = (firebaseConfig as { firestoreDatabaseId?: string }).firestoreDatabaseId;
+export const db = dbId ? getFirestore(app, dbId) : getFirestore(app);
 
 const PROFILE_DOC_ID = 'rt05_profile';
 const SYNC_STATE_DOC_ID = 'rt05_sync';
@@ -527,26 +508,49 @@ export const saveResidentsBatch = async (newResidents: Resident[]) => {
   const sorted = [...newResidents].sort((a, b) =>
     a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true })
   );
+
+  const cachedResidents = getLocalData<Resident[]>(STORAGE_KEYS.RESIDENTS, INITIAL_RESIDENTS);
+
+  // 1. Immediately update local storage and notify UI subscribers for instant response
   setLocalData(STORAGE_KEYS.RESIDENTS, sorted);
   notifyResidents(sorted);
 
+  // 2. Diff against cached data
+  const newMap = new Map(sorted.map((r) => [r.id, r]));
+  const cachedMap = new Map(cachedResidents.map((r) => [r.id, r]));
+
+  const deletedIds = cachedResidents.filter((r) => !newMap.has(r.id)).map((r) => r.id);
+  const changedResidents = sorted.filter((r) => {
+    const old = cachedMap.get(r.id);
+    if (!old) return true;
+    return JSON.stringify(old) !== JSON.stringify(r);
+  });
+
+  // If no changes, return early
+  if (deletedIds.length === 0 && changedResidents.length === 0) {
+    return;
+  }
+
+  // 3. Batch sync only diffs to Firestore
   try {
-    const resSnap = await getDocs(collection(db, 'residents'));
-    const targetIds = new Set(newResidents.map((r) => r.id));
-    const batch = writeBatch(db);
+    const ops: Array<{ type: 'set' | 'delete'; id: string; data?: Resident }> = [];
+    deletedIds.forEach((id) => ops.push({ type: 'delete', id }));
+    changedResidents.forEach((r) => ops.push({ type: 'set', id: r.id, data: r }));
 
-    // Delete any residents from Firestore that are no longer in newResidents
-    resSnap.forEach((docSnap) => {
-      if (!targetIds.has(docSnap.id)) {
-        batch.delete(docSnap.ref);
-      }
-    });
-
-    newResidents.forEach((r) => {
-      const ref = doc(db, 'residents', r.id);
-      batch.set(ref, sanitizeData(r));
-    });
-    await batch.commit();
+    const BATCH_SIZE = 400;
+    for (let i = 0; i < ops.length; i += BATCH_SIZE) {
+      const chunk = ops.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      chunk.forEach((op) => {
+        const ref = doc(db, 'residents', op.id);
+        if (op.type === 'delete') {
+          batch.delete(ref);
+        } else if (op.data) {
+          batch.set(ref, sanitizeData(op.data));
+        }
+      });
+      await batch.commit();
+    }
   } catch (err) {
     console.warn('Firestore residents batch save note:', err);
   }
@@ -628,28 +632,48 @@ export const deleteDebt = async (id: string) => {
 
 export const saveDebtsBatch = async (debts: DebtItem[]) => {
   const sorted = [...debts].sort((a, b) => b.date.localeCompare(a.date));
+  const cachedDebts = getLocalData<DebtItem[]>(STORAGE_KEYS.DEBTS, INITIAL_DEBTS);
+
+  // 1. Immediately update local storage and notify UI subscribers for instant response
   setLocalData(STORAGE_KEYS.DEBTS, sorted);
   notifyDebts(sorted);
 
+  // 2. Diff against cached data
+  const newMap = new Map(sorted.map((d) => [d.id, d]));
+  const cachedMap = new Map(cachedDebts.map((d) => [d.id, d]));
+
+  const deletedIds = cachedDebts.filter((d) => !newMap.has(d.id)).map((d) => d.id);
+  const changedDebts = sorted.filter((d) => {
+    const old = cachedMap.get(d.id);
+    if (!old) return true;
+    return JSON.stringify(old) !== JSON.stringify(d);
+  });
+
+  // If no changes, return early
+  if (deletedIds.length === 0 && changedDebts.length === 0) {
+    return;
+  }
+
+  // 3. Batch sync only diffs to Firestore
   try {
-    const debtSnap = await getDocs(collection(db, 'debts'));
-    const targetIds = new Set(debts.map((d) => d.id));
-    const batch = writeBatch(db);
+    const ops: Array<{ type: 'set' | 'delete'; id: string; data?: DebtItem }> = [];
+    deletedIds.forEach((id) => ops.push({ type: 'delete', id }));
+    changedDebts.forEach((d) => ops.push({ type: 'set', id: d.id, data: d }));
 
-    // Delete any debts from Firestore that were deleted in UI
-    debtSnap.forEach((docSnap) => {
-      if (!targetIds.has(docSnap.id)) {
-        batch.delete(docSnap.ref);
-      }
-    });
-
-    // Save/update all debts
-    debts.forEach((d) => {
-      const ref = doc(db, 'debts', d.id);
-      batch.set(ref, sanitizeData(d));
-    });
-
-    await batch.commit();
+    const BATCH_SIZE = 400;
+    for (let i = 0; i < ops.length; i += BATCH_SIZE) {
+      const chunk = ops.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      chunk.forEach((op) => {
+        const ref = doc(db, 'debts', op.id);
+        if (op.type === 'delete') {
+          batch.delete(ref);
+        } else if (op.data) {
+          batch.set(ref, sanitizeData(op.data));
+        }
+      });
+      await batch.commit();
+    }
   } catch (err) {
     console.warn('Firestore debts batch save note:', err);
   }

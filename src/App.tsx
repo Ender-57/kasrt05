@@ -103,47 +103,36 @@ export default function App() {
   // Setup Firestore real-time subscriptions and seeding on mount
   useEffect(() => {
     let active = true;
-    let unsubProfile: (() => void) | null = null;
-    let unsubResidents: (() => void) | null = null;
-    let unsubTransactions: (() => void) | null = null;
-    let unsubDebts: (() => void) | null = null;
-    let unsubSyncState: (() => void) | null = null;
-    let unsubIncidental: (() => void) | null = null;
 
-    const setupFirebaseAndSubscribe = async () => {
-      try {
-        await seedInitialDataIfEmpty();
-        if (!active) return;
+    // Immediately attach real-time subscriptions (reads instant local cache first)
+    const unsubProfile = subscribeToProfile((updatedProfile) => {
+      if (active) setProfile(updatedProfile);
+    });
 
-        unsubProfile = subscribeToProfile((updatedProfile) => {
-          if (active) setProfile(updatedProfile);
-        });
+    const unsubResidents = subscribeToResidents((updatedResidents) => {
+      if (active) setResidents(updatedResidents);
+    });
 
-        unsubResidents = subscribeToResidents((updatedResidents) => {
-          if (active) setResidents(updatedResidents);
-        });
+    const unsubTransactions = subscribeToTransactions((updatedTransactions) => {
+      if (active) setTransactions(updatedTransactions);
+    });
 
-        unsubTransactions = subscribeToTransactions((updatedTransactions) => {
-          if (active) setTransactions(updatedTransactions);
-        });
+    const unsubDebts = subscribeToDebts((updatedDebts) => {
+      if (active) setDebts(updatedDebts);
+    });
 
-        unsubDebts = subscribeToDebts((updatedDebts) => {
-          if (active) setDebts(updatedDebts);
-        });
+    const unsubSyncState = subscribeToSyncState((updatedSyncState) => {
+      if (active) setSyncState(updatedSyncState);
+    });
 
-        unsubSyncState = subscribeToSyncState((updatedSyncState) => {
-          if (active) setSyncState(updatedSyncState);
-        });
+    const unsubIncidental = subscribeToIncidentalDues((updatedIncidental) => {
+      if (active) setIncidentalPrograms(updatedIncidental);
+    });
 
-        unsubIncidental = subscribeToIncidentalDues((updatedIncidental) => {
-          if (active) setIncidentalPrograms(updatedIncidental);
-        });
-      } catch (err) {
-        console.warn('Subscription initialization note:', err);
-      }
-    };
-
-    setupFirebaseAndSubscribe();
+    // Seed initial data asynchronously in background if first boot
+    seedInitialDataIfEmpty().catch((err) => {
+      console.warn('Background seed note:', err);
+    });
 
     return () => {
       active = false;

@@ -119,11 +119,11 @@ export function resolvePin(pin: string | undefined | null, defaultPin = '123456'
     return '123456';
   }
   if (trimmed === '1a6ff8f796ed193a72c5d8a3f8a4e173ced67372fd4a282f6f5c38c1da8af010') {
-    return '335577';
+    return '123456';
   }
 
   // Quick lookup for common PIN patterns
-  const common = ['123456', '335577', '654321', '111111', '000000', '1234', '0000', '999999', '112233', '121212'];
+  const common = ['123456', '654321', '111111', '000000', '1234', '0000', '999999', '112233', '121212'];
   for (const c of common) {
     if (sha256Sync(c) === trimmed) return c;
   }

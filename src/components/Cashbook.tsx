@@ -3432,7 +3432,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
                   required
                   value={formDebtPersonName}
                   onChange={(e) => setFormDebtPersonName(e.target.value)}
-                  placeholder="Contoh: Bpk. Rosam / Toko Material"
+                  placeholder="Contoh: Bpk. Rosam"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
                 />
               </div>

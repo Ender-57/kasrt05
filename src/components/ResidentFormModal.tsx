@@ -948,7 +948,7 @@ export const ResidentFormModal: React.FC<ResidentFormModalProps> = ({
                         type="text"
                         value={customRateReason}
                         onChange={(e) => setCustomRateReason(e.target.value)}
-                        placeholder="Contoh: Kesepakatan Khusus Rumah No. 83 / Lansia / Tokoh Warga"
+                        placeholder="Contoh: Kesepakatan Khusus Rumah No. 83 / Lansia"
                         className="w-full px-3 py-2 bg-white border border-purple-200 rounded-xl text-slate-900 text-xs focus:outline-hidden focus:ring-2 focus:ring-purple-500"
                       />
                     </div>

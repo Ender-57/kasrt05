@@ -127,38 +127,7 @@ export const INITIAL_RT_PROFILE: RTProfile = {
   bankTransferNote: 'Sertakan Nama dan Nomor Rumah pada Keterangan pada saat transfer',
 };
 
-export const INITIAL_DEBTS: DebtItem[] = [
-  {
-    id: 'debt-1',
-    type: 'PIUTANG',
-    personName: 'Rosam (Warga No. 340)',
-    contact: '081234567890',
-    amount: 150000,
-    remainingAmount: 50000,
-    date: '2026-09-10',
-    dueDate: '2026-10-10',
-    status: 'BELUM_LUNAS',
-    notes: 'Pinjaman dana darurat perbaikan saluran air depan rumah',
-    paymentsHistory: [
-      { id: 'pay-1', date: '2026-09-24', amount: 100000, note: 'Cicilan 1' }
-    ]
-  },
-  {
-    id: 'debt-2',
-    type: 'UTANG',
-    personName: 'Toko Material Sinar Jaya',
-    contact: '082199887766',
-    amount: 500000,
-    remainingAmount: 0,
-    date: '2026-08-15',
-    dueDate: '2026-09-01',
-    status: 'LUNAS',
-    notes: 'Utang pembelian semen & pasir untuk kerja bakti pos ronda',
-    paymentsHistory: [
-      { id: 'pay-2', date: '2026-09-01', amount: 500000, note: 'Pelunasan lunas' }
-    ]
-  }
-];
+export const INITIAL_DEBTS: DebtItem[] = [];
 
 export const INITIAL_RESIDENTS: Resident[] = [
   {

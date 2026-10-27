@@ -149,14 +149,11 @@ const DATA_VERSION_KEY = 'rt05_data_version';
 function initLocalStorageIfEmpty() {
   if (typeof window === 'undefined') return;
 
-  const currentVersion = localStorage.getItem(DATA_VERSION_KEY);
-  const isOutdated = currentVersion !== DATA_VERSION;
-
-  if (!localStorage.getItem(STORAGE_KEYS.PROFILE)) {
+  if (localStorage.getItem(STORAGE_KEYS.PROFILE) === null) {
     setLocalData(STORAGE_KEYS.PROFILE, INITIAL_RT_PROFILE);
     notifyProfile(INITIAL_RT_PROFILE);
   }
-  if (!localStorage.getItem(STORAGE_KEYS.SYNC_STATE)) {
+  if (localStorage.getItem(STORAGE_KEYS.SYNC_STATE) === null) {
     setLocalData(STORAGE_KEYS.SYNC_STATE, {
       spreadsheetId: null,
       spreadsheetUrl: null,
@@ -164,28 +161,25 @@ function initLocalStorageIfEmpty() {
       syncInProgress: false,
     });
   }
-  if (!localStorage.getItem(STORAGE_KEYS.RESIDENTS) || isOutdated) {
+  if (localStorage.getItem(STORAGE_KEYS.RESIDENTS) === null) {
     setLocalData(STORAGE_KEYS.RESIDENTS, INITIAL_RESIDENTS);
     notifyResidents(INITIAL_RESIDENTS);
   }
-  if (!localStorage.getItem(STORAGE_KEYS.TRANSACTIONS) || isOutdated) {
+  if (localStorage.getItem(STORAGE_KEYS.TRANSACTIONS) === null) {
     setLocalData(STORAGE_KEYS.TRANSACTIONS, INITIAL_TRANSACTIONS);
     notifyTransactions(INITIAL_TRANSACTIONS);
   }
-  if (!localStorage.getItem(STORAGE_KEYS.DEBTS)) {
+  if (localStorage.getItem(STORAGE_KEYS.DEBTS) === null) {
     setLocalData(STORAGE_KEYS.DEBTS, INITIAL_DEBTS);
+    notifyDebts(INITIAL_DEBTS);
   }
-  if (!localStorage.getItem(STORAGE_KEYS.INCIDENTAL)) {
+  if (localStorage.getItem(STORAGE_KEYS.INCIDENTAL) === null) {
     setLocalData(STORAGE_KEYS.INCIDENTAL, []);
-  }
-
-  if (isOutdated) {
-    localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
   }
 }
 
 /**
- * Seeds Firestore collections if they are empty, with resilient fallback to local cache
+ * Seeds Firestore collections if profile does not exist yet (first boot only)
  */
 export const seedInitialDataIfEmpty = async () => {
   initLocalStorageIfEmpty();
@@ -221,7 +215,7 @@ export const seedInitialDataIfEmpty = async () => {
         batch.set(ref, t);
       });
 
-      // 5. Seed Debts
+      // 5. Seed Debts (if any)
       INITIAL_DEBTS.forEach((d) => {
         const ref = doc(db, 'debts', d.id);
         batch.set(ref, d);
@@ -254,46 +248,6 @@ export const seedInitialDataIfEmpty = async () => {
       };
 
       await setDoc(profileRef, sanitizeData(mergedProfile), { merge: true });
-
-      // Ensure debts collection in Firestore is initialized if empty
-      const debtSnap = await getDocs(collection(db, 'debts'));
-      if (debtSnap.empty) {
-        const debtBatch = writeBatch(db);
-        INITIAL_DEBTS.forEach((d) => {
-          debtBatch.set(doc(db, 'debts', d.id), sanitizeData(d));
-        });
-        await debtBatch.commit();
-      }
-
-      // Ensure residents collection in Firestore contains all 34 residents from the latest data
-      const resSnap = await getDocs(collection(db, 'residents'));
-      if (resSnap.empty || resSnap.size < INITIAL_RESIDENTS.length) {
-        const resBatch = writeBatch(db);
-        INITIAL_RESIDENTS.forEach((r) => {
-          resBatch.set(doc(db, 'residents', r.id), sanitizeData(r));
-        });
-        await resBatch.commit();
-      }
-
-      // Ensure transactions collection in Firestore contains initial transactions without deleting user-created transactions
-      const txSnap = await getDocs(collection(db, 'transactions'));
-      if (txSnap.empty) {
-        const txBatch = writeBatch(db);
-        INITIAL_TRANSACTIONS.forEach((t) => {
-          txBatch.set(doc(db, 'transactions', t.id), sanitizeData(t));
-        });
-        await txBatch.commit();
-      } else {
-        const existingTxIds = new Set(txSnap.docs.map((d) => d.id));
-        const missingInitialTxs = INITIAL_TRANSACTIONS.filter((t) => !existingTxIds.has(t.id));
-        if (missingInitialTxs.length > 0) {
-          const txBatch = writeBatch(db);
-          missingInitialTxs.forEach((t) => {
-            txBatch.set(doc(db, 'transactions', t.id), sanitizeData(t));
-          });
-          await txBatch.commit();
-        }
-      }
     }
   } catch (err: unknown) {
     // Graceful offline fallback: log warning instead of throwing fatal console error
@@ -389,15 +343,13 @@ export const subscribeToResidents = (onUpdate: (residents: Resident[]) => void) 
   const unsub = onSnapshot(
     ref,
     (snap) => {
-      if (!snap.empty) {
-        const list: Resident[] = [];
-        snap.forEach((d) => {
-          list.push(d.data() as Resident);
-        });
-        list.sort((a, b) => a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true }));
-        setLocalData(STORAGE_KEYS.RESIDENTS, list);
-        notifyResidents(list);
-      }
+      const list: Resident[] = [];
+      snap.forEach((d) => {
+        list.push(d.data() as Resident);
+      });
+      list.sort((a, b) => a.houseNo.localeCompare(b.houseNo, undefined, { numeric: true }));
+      setLocalData(STORAGE_KEYS.RESIDENTS, list);
+      notifyResidents(list);
     },
     (error) => {
       console.warn('Residents subscription notice:', error.message);
@@ -421,15 +373,13 @@ export const subscribeToTransactions = (onUpdate: (transactions: CashTransaction
   const unsub = onSnapshot(
     ref,
     (snap) => {
-      if (!snap.empty) {
-        const list: CashTransaction[] = [];
-        snap.forEach((d) => {
-          list.push(d.data() as CashTransaction);
-        });
-        list.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-        setLocalData(STORAGE_KEYS.TRANSACTIONS, list);
-        notifyTransactions(list);
-      }
+      const list: CashTransaction[] = [];
+      snap.forEach((d) => {
+        list.push(d.data() as CashTransaction);
+      });
+      list.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+      setLocalData(STORAGE_KEYS.TRANSACTIONS, list);
+      notifyTransactions(list);
     },
     (error) => {
       console.warn('Transactions subscription notice:', error.message);
@@ -453,15 +403,13 @@ export const subscribeToDebts = (onUpdate: (debts: DebtItem[]) => void) => {
   const unsub = onSnapshot(
     ref,
     (snap) => {
-      if (!snap.empty) {
-        const list: DebtItem[] = [];
-        snap.forEach((d) => {
-          list.push(d.data() as DebtItem);
-        });
-        list.sort((a, b) => b.date.localeCompare(a.date));
-        setLocalData(STORAGE_KEYS.DEBTS, list);
-        notifyDebts(list);
-      }
+      const list: DebtItem[] = [];
+      snap.forEach((d) => {
+        list.push(d.data() as DebtItem);
+      });
+      list.sort((a, b) => b.date.localeCompare(a.date));
+      setLocalData(STORAGE_KEYS.DEBTS, list);
+      notifyDebts(list);
     },
     (error) => {
       console.warn('Debts subscription notice:', error.message);
@@ -485,15 +433,13 @@ export const subscribeToIncidentalDues = (onUpdate: (programs: IncidentalDuesPro
   const unsub = onSnapshot(
     ref,
     (snap) => {
-      if (!snap.empty) {
-        const list: IncidentalDuesProgram[] = [];
-        snap.forEach((d) => {
-          list.push(d.data() as IncidentalDuesProgram);
-        });
-        list.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-        setLocalData(STORAGE_KEYS.INCIDENTAL, list);
-        notifyIncidental(list);
-      }
+      const list: IncidentalDuesProgram[] = [];
+      snap.forEach((d) => {
+        list.push(d.data() as IncidentalDuesProgram);
+      });
+      list.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+      setLocalData(STORAGE_KEYS.INCIDENTAL, list);
+      notifyIncidental(list);
     },
     (error) => {
       console.warn('Incidental dues subscription notice:', error.message);

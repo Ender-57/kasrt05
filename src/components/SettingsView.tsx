@@ -25,21 +25,43 @@ import {
   FileText,
   CreditCard,
   Tag,
+  Cloud,
+  HardDrive,
+  RefreshCw,
+  ExternalLink,
+  ToggleLeft,
+  ToggleRight,
+  FileCode,
 } from 'lucide-react';
-import { RTProfile, Resident, CashTransaction, CommitteeOfficer, MONTHS, MonthKey } from '../types';
+import {
+  RTProfile,
+  Resident,
+  CashTransaction,
+  CommitteeOfficer,
+  MONTHS,
+  MonthKey,
+  DebtItem,
+  IncidentalDuesProgram,
+} from '../types';
 import { INITIAL_RESIDENTS, INITIAL_TRANSACTIONS, INITIAL_RT_PROFILE } from '../data/initialData';
 import { formatDateIndo, getTodayJakarta, getCleanRtRwTitle, formatRupiah } from '../utils/formatters';
 import { resolveAdminPin } from '../utils/crypto';
 import { CurrencyInput } from './CurrencyInput';
+import { useAutoDriveBackup } from '../hooks/useAutoDriveBackup';
 
 interface SettingsViewProps {
   profile: RTProfile;
   onUpdateProfile: (newProfile: RTProfile) => void;
   residents: Resident[];
   transactions: CashTransaction[];
+  debts?: DebtItem[];
+  incidentalPrograms?: IncidentalDuesProgram[];
   onResetData: () => void;
   onRestoreData: (residents: Resident[], transactions: CashTransaction[], profile: RTProfile) => void;
   onOpenGoogleSync: () => void;
+  userEmail?: string | null;
+  onGoogleSignIn?: () => void;
+  driveBackup?: ReturnType<typeof useAutoDriveBackup>;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -47,9 +69,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onUpdateProfile,
   residents,
   transactions,
+  debts = [],
+  incidentalPrograms = [],
   onResetData,
   onRestoreData,
   onOpenGoogleSync,
+  userEmail,
+  onGoogleSignIn,
+  driveBackup,
 }) => {
   const [form, setForm] = useState<RTProfile>({ 
     ...profile,
@@ -98,6 +125,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     message: string;
   } | null>(null);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isDriveConfirmModalOpen, setIsDriveConfirmModalOpen] = useState(false);
 
   // Synchronize form when parent profile changes
   useEffect(() => {

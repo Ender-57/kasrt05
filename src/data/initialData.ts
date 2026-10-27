@@ -1256,6 +1256,10 @@ export const INITIAL_TRANSACTIONS: CashTransaction[] = [
     recordedBy: "Hendra Cahyono",
     receiptNumber: "MUT-261004-046",
     notes: "Waktu: 14:34:52 WIB | Saldo: Rp 3.714.900",
+    salaryBase: 295000,
+    salaryDeduction: 0,
+    salaryRecipient: "Transfer ke BANK MANDIRI NORIKA MALASARI 1360031479220 Gaji Rosam Oktober",
+    salaryMonth: "September 2026",
   },
   {
     id: "tx-047",

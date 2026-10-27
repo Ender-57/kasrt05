@@ -15,6 +15,9 @@
         "treasurerName": { "type": "string" },
         "secretaryName": { "type": "string" },
         "adminPin": { "type": "string" },
+        "secretaryPin": { "type": "string" },
+        "defaultMonthlyRate": { "type": "number" },
+        "monthlyRates": { "type": "object" },
         "officers": { "type": "array" },
         "programKerjaList": { "type": "array" },
         "bankName": { "type": "string" },
@@ -90,11 +93,12 @@
         "remainingAmount": { "type": "number" },
         "date": { "type": "string" },
         "dueDate": { "type": "string" },
-        "description": { "type": "string" },
+        "notes": { "type": "string" },
         "status": { "type": "string" },
-        "payments": { "type": "array" }
+        "paymentsHistory": { "type": "array" },
+        "adminFee": { "type": "number" }
       },
-      "required": ["id", "type", "personName", "amount", "remainingAmount", "date", "status", "payments"]
+      "required": ["id", "type", "personName", "amount", "remainingAmount", "date", "status"]
     },
     "syncState": {
       "title": "Google Sync State",

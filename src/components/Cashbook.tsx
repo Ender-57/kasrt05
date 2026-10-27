@@ -180,6 +180,8 @@ export const Cashbook: React.FC<CashbookProps> = ({
   const [formDebtPersonName, setFormDebtPersonName] = useState('');
   const [formDebtContact, setFormDebtContact] = useState('');
   const [formDebtAmount, setFormDebtAmount] = useState<number | ''>('');
+  const [formDebtRemainingAmount, setFormDebtRemainingAmount] = useState<number | ''>('');
+  const [formDebtStatus, setFormDebtStatus] = useState<DebtStatus>('BELUM_LUNAS');
   const [formDebtDate, setFormDebtDate] = useState(() => getTodayJakarta());
   const [formDebtDueDate, setFormDebtDueDate] = useState('');
   const [formDebtNotes, setFormDebtNotes] = useState('');
@@ -229,6 +231,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
 
   // Salary Management States
   const [isSalaryModalOpen, setIsSalaryModalOpen] = useState(false);
+  const [editingSalaryTx, setEditingSalaryTx] = useState<CashTransaction | null>(null);
   const [salaryRecipient, setSalaryRecipient] = useState('');
   const [salaryMonth, setSalaryMonth] = useState(`${currentPeriod.monthName} ${currentPeriod.year}`);
   const [salaryBase, setSalaryBase] = useState<number | ''>('');
@@ -264,6 +267,37 @@ export const Cashbook: React.FC<CashbookProps> = ({
     };
   }, [salaryTransactions]);
 
+  const handleOpenSalaryModal = (tx?: CashTransaction) => {
+    if (tx) {
+      setEditingSalaryTx(tx);
+      setSalaryRecipient(tx.salaryRecipient || tx.description);
+      setSalaryMonth(tx.salaryMonth || 'September 2026');
+      setSalaryBase(tx.salaryBase || tx.amount);
+      setSalaryDeduction(tx.salaryDeduction || '');
+      setSalaryDeductionType(tx.salaryDeductionType || 'LAINNYA');
+      setLinkedDebtId(tx.linkedDebtId || '');
+      setLinkedDebtIds(tx.linkedDebtIds || (tx.linkedDebtId ? [tx.linkedDebtId] : []));
+      setSalaryNotes(tx.notes || '');
+      setSalaryDate(tx.date);
+      setSalaryBankAdminFee('');
+      setSyncSalaryAdminToCashbook(false);
+    } else {
+      setEditingSalaryTx(null);
+      setSalaryRecipient('');
+      setSalaryMonth(`${currentPeriod.monthName} ${currentPeriod.year}`);
+      setSalaryBase('');
+      setSalaryDeduction('');
+      setSalaryDeductionType('LAINNYA');
+      setLinkedDebtId('');
+      setLinkedDebtIds([]);
+      setSalaryNotes('');
+      setSalaryDate(getTodayJakarta());
+      setSalaryBankAdminFee('');
+      setSyncSalaryAdminToCashbook(true);
+    }
+    setIsSalaryModalOpen(true);
+  };
+
   const handleSaveSalary = (e: React.FormEvent) => {
     e.preventDefault();
     if (!salaryRecipient || typeof salaryBase !== 'number' || salaryBase <= 0) return;
@@ -272,6 +306,35 @@ export const Cashbook: React.FC<CashbookProps> = ({
     const netAmount = salaryBase - deductionAmount;
     if (netAmount < 0) {
       alert('Potongan tidak boleh melebihi Gaji Pokok!');
+      return;
+    }
+
+    if (editingSalaryTx) {
+      onUpdateTransaction({
+        ...editingSalaryTx,
+        date: salaryDate,
+        amount: netAmount,
+        description: `Gaji ${salaryMonth} - ${salaryRecipient} (Pokok: ${formatRupiah(salaryBase)}${deductionAmount > 0 ? `, Potongan: ${formatRupiah(deductionAmount)}` : ''})`,
+        notes: salaryNotes,
+        salaryBase,
+        salaryDeduction: deductionAmount,
+        salaryDeductionType: deductionAmount > 0 ? salaryDeductionType : undefined,
+        salaryRecipient,
+        salaryMonth,
+        linkedDebtId: salaryDeductionType === 'KASBON' && deductionAmount > 0 ? linkedDebtIds[0] : undefined,
+        linkedDebtIds: salaryDeductionType === 'KASBON' && deductionAmount > 0 ? linkedDebtIds : undefined,
+      });
+
+      setIsSalaryModalOpen(false);
+      setEditingSalaryTx(null);
+      setSalaryRecipient('');
+      setSalaryBase('');
+      setSalaryDeduction('');
+      setSalaryDeductionType('LAINNYA');
+      setLinkedDebtId('');
+      setLinkedDebtIds([]);
+      setSalaryNotes('');
+      setSalaryBankAdminFee('');
       return;
     }
 
@@ -1137,6 +1200,8 @@ export const Cashbook: React.FC<CashbookProps> = ({
       setFormDebtPersonName(debt.personName);
       setFormDebtContact(debt.contact || '');
       setFormDebtAmount(debt.adminFee ? debt.amount - debt.adminFee : debt.amount);
+      setFormDebtRemainingAmount(debt.remainingAmount);
+      setFormDebtStatus(debt.status);
       setFormDebtDate(debt.date);
       setFormDebtDueDate(debt.dueDate || '');
       setFormDebtNotes(debt.notes || '');
@@ -1150,6 +1215,8 @@ export const Cashbook: React.FC<CashbookProps> = ({
       setFormDebtPersonName('');
       setFormDebtContact('');
       setFormDebtAmount('');
+      setFormDebtRemainingAmount('');
+      setFormDebtStatus('BELUM_LUNAS');
       setFormDebtDate(getTodayJakarta());
       setFormDebtDueDate('');
       setFormDebtNotes('');
@@ -1169,20 +1236,25 @@ export const Cashbook: React.FC<CashbookProps> = ({
     const finalAmount = formDebtAmount + numericAdminFee;
 
     if (editingDebt) {
+      const explicitRemaining =
+        typeof formDebtRemainingAmount === 'number'
+          ? Math.max(0, formDebtRemainingAmount)
+          : Math.max(0, formDebtAmount);
+      const computedStatus: DebtStatus =
+        explicitRemaining === 0 ? 'LUNAS' : formDebtStatus;
+
       const updated = debts.map((d) => {
         if (d.id !== editingDebt.id) return d;
-        const diff = finalAmount - d.amount;
-        const newRemaining = Math.max(0, d.remainingAmount + diff);
         return {
           ...d,
           type: formDebtType,
           personName: formDebtPersonName,
           contact: formDebtContact,
           amount: finalAmount,
-          remainingAmount: newRemaining,
+          remainingAmount: explicitRemaining,
           date: formDebtDate,
           dueDate: formDebtDueDate,
-          status: newRemaining === 0 ? ('LUNAS' as DebtStatus) : ('BELUM_LUNAS' as DebtStatus),
+          status: computedStatus,
           notes: formDebtNotes,
           adminFee: numericAdminFee > 0 ? numericAdminFee : undefined,
         };
@@ -2425,7 +2497,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
               </div>
               {isAdmin && (
                 <button
-                  onClick={() => setIsSalaryModalOpen(true)}
+                  onClick={() => handleOpenSalaryModal()}
                   className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <PlusCircle className="w-4 h-4" />
@@ -2536,6 +2608,13 @@ export const Cashbook: React.FC<CashbookProps> = ({
                                   <Printer className="w-4 h-4" />
                                 </button>
                                 <button
+                                  onClick={() => handleOpenSalaryModal(tx)}
+                                  title="Edit data pembayaran gaji"
+                                  className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
                                   onClick={() => handleDelete(tx)}
                                   title="Hapus catatan gaji"
                                   className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
@@ -2576,7 +2655,7 @@ export const Cashbook: React.FC<CashbookProps> = ({
                 </div>
                 <div>
                   <h3 className="font-semibold text-base leading-tight">
-                    Catat Pembayaran Gaji / Honor Baru
+                    {editingSalaryTx ? "Edit Pembayaran Gaji / Honor" : "Catat Pembayaran Gaji / Honor Baru"}
                   </h3>
                   <p className="text-xs text-slate-400">
                     Sistem penggajian internal {getCleanRtRwTitle(profile)}
@@ -3382,6 +3461,41 @@ export const Cashbook: React.FC<CashbookProps> = ({
                   />
                 </div>
               </div>
+
+              {editingDebt && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-amber-50/70 p-3 rounded-xl border border-amber-200">
+                  <div>
+                    <label className="block font-semibold text-amber-900 mb-1">Sisa Belum Lunas (Rp) *</label>
+                    <CurrencyInput
+                      required
+                      value={formDebtRemainingAmount}
+                      onChange={(val) => {
+                        setFormDebtRemainingAmount(val);
+                        if (val === 0) setFormDebtStatus('LUNAS');
+                        else setFormDebtStatus('BELUM_LUNAS');
+                      }}
+                      prefix="Rp"
+                      placeholder="0"
+                      className="w-full pr-3 py-2 bg-white border border-amber-300 rounded-xl text-slate-900 font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-amber-900 mb-1">Status Pelunasan *</label>
+                    <select
+                      value={formDebtStatus}
+                      onChange={(e) => {
+                        const newStat = e.target.value as DebtStatus;
+                        setFormDebtStatus(newStat);
+                        if (newStat === 'LUNAS') setFormDebtRemainingAmount(0);
+                      }}
+                      className="w-full px-3 py-2 bg-white border border-amber-300 rounded-xl text-slate-900 font-bold focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="BELUM_LUNAS">BELUM LUNAS</option>
+                      <option value="LUNAS">LUNAS ✅</option>
+                    </select>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>

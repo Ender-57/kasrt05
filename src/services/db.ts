@@ -27,7 +27,7 @@ import {
   INITIAL_RT_PROFILE,
   INITIAL_DEBTS,
 } from '../data/initialData';
-import { resolveAdminPin, isSha256 } from '../utils/crypto';
+import { resolveAdminPin, resolveSecretaryPin, isSha256 } from '../utils/crypto';
 
 // Initialize Firebase App safely
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -235,7 +235,7 @@ export const seedInitialDataIfEmpty = async () => {
         ? resolveAdminPin(currentProfileData.adminPin)
         : INITIAL_RT_PROFILE.adminPin;
       const currentSecPin = currentProfileData?.secretaryPin
-        ? resolveAdminPin(currentProfileData.secretaryPin)
+        ? resolveSecretaryPin(currentProfileData.secretaryPin)
         : (INITIAL_RT_PROFILE.secretaryPin || '654321');
 
       const mergedProfile: RTProfile = {
@@ -275,28 +275,24 @@ export const seedInitialDataIfEmpty = async () => {
         await resBatch.commit();
       }
 
-      // Ensure transactions collection in Firestore matches the exact 67 transactions from mutasi rekening
+      // Ensure transactions collection in Firestore contains initial transactions without deleting user-created transactions
       const txSnap = await getDocs(collection(db, 'transactions'));
-      const existingTxIds = new Set(txSnap.docs.map((d) => d.id));
-      const targetTxIds = new Set(INITIAL_TRANSACTIONS.map((t) => t.id));
-
-      const needsSync =
-        txSnap.size !== INITIAL_TRANSACTIONS.length ||
-        INITIAL_TRANSACTIONS.some((t) => !existingTxIds.has(t.id));
-
-      if (needsSync) {
+      if (txSnap.empty) {
         const txBatch = writeBatch(db);
-        // Delete any old transactions not in INITIAL_TRANSACTIONS
-        for (const docSnap of txSnap.docs) {
-          if (!targetTxIds.has(docSnap.id)) {
-            txBatch.delete(docSnap.ref);
-          }
-        }
-        // Write all 67 transactions
         INITIAL_TRANSACTIONS.forEach((t) => {
           txBatch.set(doc(db, 'transactions', t.id), sanitizeData(t));
         });
         await txBatch.commit();
+      } else {
+        const existingTxIds = new Set(txSnap.docs.map((d) => d.id));
+        const missingInitialTxs = INITIAL_TRANSACTIONS.filter((t) => !existingTxIds.has(t.id));
+        if (missingInitialTxs.length > 0) {
+          const txBatch = writeBatch(db);
+          missingInitialTxs.forEach((t) => {
+            txBatch.set(doc(db, 'transactions', t.id), sanitizeData(t));
+          });
+          await txBatch.commit();
+        }
       }
     }
   } catch (err: unknown) {
@@ -331,7 +327,7 @@ export const subscribeToProfile = (onUpdate: (profile: RTProfile) => void) => {
           updateDoc(ref, { adminPin: plainPin }).catch(() => {});
         }
         if (data.secretaryPin && (isSha256(data.secretaryPin) || data.secretaryPin.length > 10)) {
-          const plainSecPin = resolveAdminPin(data.secretaryPin);
+          const plainSecPin = resolveSecretaryPin(data.secretaryPin);
           data.secretaryPin = plainSecPin;
           updateDoc(ref, { secretaryPin: plainSecPin }).catch(() => {});
         }
@@ -457,13 +453,15 @@ export const subscribeToDebts = (onUpdate: (debts: DebtItem[]) => void) => {
   const unsub = onSnapshot(
     ref,
     (snap) => {
-      const list: DebtItem[] = [];
-      snap.forEach((d) => {
-        list.push(d.data() as DebtItem);
-      });
-      list.sort((a, b) => b.date.localeCompare(a.date));
-      setLocalData(STORAGE_KEYS.DEBTS, list);
-      notifyDebts(list);
+      if (!snap.empty) {
+        const list: DebtItem[] = [];
+        snap.forEach((d) => {
+          list.push(d.data() as DebtItem);
+        });
+        list.sort((a, b) => b.date.localeCompare(a.date));
+        setLocalData(STORAGE_KEYS.DEBTS, list);
+        notifyDebts(list);
+      }
     },
     (error) => {
       console.warn('Debts subscription notice:', error.message);
@@ -516,7 +514,7 @@ export const saveProfile = async (profile: RTProfile) => {
   const cleanProfile: RTProfile = {
     ...profile,
     adminPin: resolveAdminPin(profile.adminPin),
-    secretaryPin: profile.secretaryPin ? resolveAdminPin(profile.secretaryPin) : '654321',
+    secretaryPin: resolveSecretaryPin(profile.secretaryPin),
   };
 
   setLocalData(STORAGE_KEYS.PROFILE, cleanProfile);

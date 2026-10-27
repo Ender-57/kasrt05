@@ -101,12 +101,12 @@ export function isSha256(str: string): boolean {
 }
 
 /**
- * Resolves an admin PIN to its human-readable form.
+ * Resolves a PIN to its human-readable form.
  * If the PIN was previously stored as a SHA-256 hash in Firestore,
- * this function converts it back to the clean plain-text PIN (e.g. 123456 or 335577).
+ * this function converts it back to the clean plain-text PIN (e.g. 123456 or 654321).
  */
-export function resolveAdminPin(pin: string | undefined | null): string {
-  if (!pin) return '123456';
+export function resolvePin(pin: string | undefined | null, defaultPin = '123456'): string {
+  if (!pin || pin.trim() === '') return defaultPin;
   const trimmed = pin.trim();
 
   // If already a standard plain-text PIN (length <= 10 and not a 64-char hex hash)
@@ -123,10 +123,18 @@ export function resolveAdminPin(pin: string | undefined | null): string {
   }
 
   // Quick lookup for common PIN patterns
-  const common = ['123456', '335577', '111111', '000000', '1234', '0000', '654321', '999999', '112233', '121212'];
+  const common = ['123456', '335577', '654321', '111111', '000000', '1234', '0000', '999999', '112233', '121212'];
   for (const c of common) {
     if (sha256Sync(c) === trimmed) return c;
   }
 
-  return '123456';
+  return defaultPin;
+}
+
+export function resolveAdminPin(pin: string | undefined | null): string {
+  return resolvePin(pin, '123456');
+}
+
+export function resolveSecretaryPin(pin: string | undefined | null): string {
+  return resolvePin(pin, '654321');
 }
